@@ -6,7 +6,7 @@ MicroStick v1.0 将 M5Stack StickS3 变成一台面向 ChatGPT Desktop 的非官
 
 [English](README.en.md)
 
-![MicroStick UI](docs/ui-previews/microstick-v1-ui-previews.png)
+![MicroStick 产品渲染图](docs/microstick-v1-product-render.png)
 
 ## 功能
 

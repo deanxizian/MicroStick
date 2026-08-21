@@ -6,7 +6,7 @@ MicroStick v1.0 turns an M5Stack StickS3 into an unofficial Codex Micro-compatib
 
 [中文](README.md)
 
-![MicroStick UI](docs/ui-previews/microstick-v1-ui-previews.png)
+![MicroStick product render](docs/microstick-v1-product-render.png)
 
 ## Features
 
