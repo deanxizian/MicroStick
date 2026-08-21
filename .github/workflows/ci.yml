@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  shell-and-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check POSIX scripts
+        run: |
+          for file in scripts/*.sh; do
+            sh -n "$file"
+          done
+      - name: Check Bash scripts
+        run: |
+          for file in scripts/*.sh script/*.sh; do
+            bash -n "$file"
+          done
+      - name: Compile asset generators and validate bundled font format
+        run: |
+          python3 -m py_compile firmware/sticks3/tools/generate_roxy_assets.py firmware/sticks3/tools/generate_cn_font.py
+          python3 firmware/sticks3/tools/generate_cn_font.py --size 12 --check
+          python3 firmware/sticks3/tools/generate_cn_font.py --size 16 --check
+
+  swift:
+    runs-on: macos-14
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build native Apple Silicon components
+        run: |
+          test "$(uname -m)" = arm64
+          swift build --package-path app/macos
+      - name: Test native macOS components
+        run: swift test --package-path app/macos
+
+  portable-firmware-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container: espressif/idf:v5.5.2
+    steps:
+      - uses: actions/checkout@v7
+      - name: Test bounded Micro RPC codec
+        run: |
+          /opt/esp/entrypoint.sh cmake -S firmware/sticks3/components/codex_control -B /tmp/codex-control -DCODEX_CONTROL_CJSON_DIR=/opt/esp/idf/components/json/cJSON
+          /opt/esp/entrypoint.sh cmake --build /tmp/codex-control
+          /opt/esp/entrypoint.sh ctest --test-dir /tmp/codex-control --output-on-failure
+      - name: Test Micro action pairing
+        run: |
+          /opt/esp/entrypoint.sh cmake -S firmware/sticks3/components/micro_action_tracker -B /tmp/action-tracker
+          /opt/esp/entrypoint.sh cmake --build /tmp/action-tracker
+          /opt/esp/entrypoint.sh ctest --test-dir /tmp/action-tracker --output-on-failure
+      - name: Test two-button recognizer
+        run: |
+          /opt/esp/entrypoint.sh cmake -S firmware/sticks3/components/two_button_input -B /tmp/two-buttons
+          /opt/esp/entrypoint.sh cmake --build /tmp/two-buttons
+          /opt/esp/entrypoint.sh ctest --test-dir /tmp/two-buttons --output-on-failure
+      - name: Test BLE keyboard Escape report
+        run: |
+          /opt/esp/entrypoint.sh cmake -S firmware/sticks3/components/codex_transport_ble_espidf -B /tmp/keyboard-hid
+          /opt/esp/entrypoint.sh cmake --build /tmp/keyboard-hid
+          /opt/esp/entrypoint.sh ctest --test-dir /tmp/keyboard-hid --output-on-failure
+      - name: Test Agent semantics and 135x240 UI model
+        run: |
+          /opt/esp/entrypoint.sh cmake -S firmware/sticks3/components/microstick_state_model -B /tmp/microstick-state
+          /opt/esp/entrypoint.sh cmake --build /tmp/microstick-state
+          /opt/esp/entrypoint.sh ctest --test-dir /tmp/microstick-state --output-on-failure
+      - name: Test Usage payload and fragmentation
+        run: |
+          /opt/esp/entrypoint.sh cmake -S firmware/sticks3/app/usage/test -B /tmp/usage
+          /opt/esp/entrypoint.sh cmake --build /tmp/usage
+          /opt/esp/entrypoint.sh ctest --test-dir /tmp/usage --output-on-failure
+
+  firmware:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    container: espressif/idf:v5.5.2
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build StickS3 release firmware with ESP-IDF 5.5.2
+        working-directory: firmware/sticks3
+        run: |
+          /opt/esp/entrypoint.sh idf.py -B build-ci -D SDKCONFIG=build-ci/sdkconfig.release build
+          /opt/esp/entrypoint.sh python -m esptool --chip esp32s3 merge_bin --flash_mode dio --flash_freq 80m --flash_size 8MB -o MicroStick-StickS3.bin 0x0 build-ci/bootloader/bootloader.bin 0x8000 build-ci/partition_table/partition-table.bin 0x10000 build-ci/microstick_sticks3.bin
+          sha256sum MicroStick-StickS3.bin > MicroStick-StickS3.bin.sha256
+      - uses: actions/upload-artifact@v6
+        with:
+          name: MicroStick-StickS3
+          path: |
+            firmware/sticks3/MicroStick-StickS3.bin
+            firmware/sticks3/MicroStick-StickS3.bin.sha256
+
+  usage-sync-package:
+    runs-on: macos-14
+    timeout-minutes: 20
+    needs: swift
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build Apple Silicon UsageSync package
+        run: MICROSTICK_ALLOW_NON_DISTRIBUTION_SIGNING=1 ./script/build_usage_sync_release.sh
+      - name: Verify arm64 app, native login item, and package scripts
+        run: |
+          test "$(uname -m)" = arm64
+          package="dist/MicroStickUsageSync-v1.0.0-macos-arm64"
+          app="$package/MicroStickUsageSync.app"
+          codesign --verify --deep --strict "$app"
+          test "$(lipo -archs "$app/Contents/MacOS/MicroStickUsageSync")" = arm64
+          test "$(plutil -extract CFBundleDisplayName raw "$app/Contents/Info.plist")" = MicroStickUsageSync
+          test -f "$app/Contents/Resources/Licenses/AgentMote-LICENSE"
+          test -f "$app/Contents/Resources/Licenses/FreeMicro-LICENSE"
+          test -f "$app/Contents/Resources/Licenses/codex-micro-4-core2-LICENSE"
+          test -f "$app/Contents/Resources/Licenses/Espressif-usb_device_uac-LICENSE"
+          test -f "$app/Contents/Resources/Licenses/SourceHanSans-OFL-1.1.txt"
+          test -f "$package/docs/USAGE_SYNC_INSTALLATION.md"
+          grep -q 'SMAppService.mainApp' app/macos/Sources/MicroStickUsageSync/main.swift
+          grep -q 'HOME/Applications' "$package/install.sh"
+          ! grep -q 'AssociatedBundleIdentifiers' "$package/install.sh"
+          sh -n "$package/install.sh" "$package/uninstall.sh" "$package/doctor.sh"
+          unzip -t "dist/MicroStickUsageSync-v1.0.0-macos-arm64.zip"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: MicroStickUsageSync-macos-arm64
+          path: |
+            dist/MicroStickUsageSync-v*-macos-arm64.zip
+            dist/MicroStickUsageSync-v*-macos-arm64.zip.sha256

@@ -1,0 +1,60 @@
+MicroStick
+MicroStick additions Copyright (c) 2026 Zian Xi
+Earlier MIT-licensed product foundations Copyright (c) 2026 Gary Zhang
+Licensed under the MIT License in LICENSE.
+
+UNOFFICIAL COMPATIBILITY NOTICE
+
+MicroStick is an independent compatibility implementation. It is not affiliated
+with, authorized by, endorsed by, sponsored by, or supported by OpenAI or Work
+Louder. OpenAI, ChatGPT, Codex, Work Louder, and Codex Micro names and marks
+belong to their respective owners and are used only to identify compatibility.
+
+The Codex Micro compatible BLE HID implementation is derived in part from:
+
+  AgentMote
+  Copyright (c) 2026 shenjingnan
+  MIT License; full text: firmware/sticks3/components/agentmote.LICENSE
+  Release bundle: Contents/Resources/Licenses/AgentMote-LICENSE
+
+and was independently checked against the MIT-licensed protocol reference:
+
+  FreeMicro
+  Copyright (c) 2026 Eli Benveniste
+  MIT License; full text: firmware/sticks3/components/freemicro.LICENSE
+  Release bundle: Contents/Resources/Licenses/FreeMicro-LICENSE
+
+and:
+
+  codex-micro-4-core2
+  Copyright (c) 2026 imliubo
+  MIT License; full text: firmware/sticks3/components/codex-micro-4-core2.LICENSE
+  Release bundle: Contents/Resources/Licenses/codex-micro-4-core2-LICENSE
+
+The Micro Vendor HID interface is undocumented. Device identities, report
+formats, key identifiers, and RPC method names may change without notice.
+Compatibility does not imply official authorization.
+
+The vendored Espressif usb_device_uac component is licensed under Apache
+License 2.0. Full text:
+
+  firmware/sticks3/components/usb_device_uac/license.txt
+  Release bundle: Contents/Resources/Licenses/Espressif-usb_device_uac-LICENSE
+
+The generated LVGL glyph subset is derived from Source Han Sans CN Regular:
+
+  Copyright 2014-2025 Adobe (http://www.adobe.com/), with Reserved Font Name
+  "Source". Licensed under the SIL Open Font License, Version 1.1.
+  Full text: firmware/sticks3/components/source-han-sans.OFL.txt
+  Release bundle: Contents/Resources/Licenses/SourceHanSans-OFL-1.1.txt
+
+The subsets are used in:
+
+  firmware/sticks3/generated/microstick_cn_12.c
+  firmware/sticks3/generated/microstick_cn_16.c
+
+The bundled Roxy frame data is derived from the project owner's custom
+`roxy-pixel` Codex pet atlas. The original atlas is not redistributed. Source
+checksum and derivation details are documented in docs/ROXY_ASSET.md. The
+derived frames are distributed under the MicroStick MIT license and are not
+presented as an OpenAI or Work Louder built-in asset.

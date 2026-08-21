@@ -1,0 +1,32 @@
+#pragma once
+
+#include "driver/gpio.h"
+
+#define STICK_S3_AUDIO_SAMPLE_RATE 48000
+
+#define STICK_S3_I2C_SDA GPIO_NUM_47
+#define STICK_S3_I2C_SCL GPIO_NUM_48
+/* esp_codec_dev uses the 8-bit I2C address and shifts it for ESP-IDF's
+ * 7-bit bus API. The ES8311 datasheet address is 0x18, therefore this
+ * interface must receive 0x30 (also ES8311_CODEC_DEFAULT_ADDR). */
+#define STICK_S3_ES8311_ADDRESS 0x30
+
+#define STICK_S3_AUDIO_MCLK GPIO_NUM_18
+#define STICK_S3_AUDIO_BCLK GPIO_NUM_17
+#define STICK_S3_AUDIO_LRCK GPIO_NUM_15
+#define STICK_S3_AUDIO_DOUT GPIO_NUM_14
+#define STICK_S3_AUDIO_DIN GPIO_NUM_16
+
+#define STICK_S3_KEY1 GPIO_NUM_11
+#define STICK_S3_KEY2 GPIO_NUM_12
+
+#define STICK_S3_LCD_MOSI GPIO_NUM_39
+#define STICK_S3_LCD_CLOCK GPIO_NUM_40
+#define STICK_S3_LCD_CS GPIO_NUM_41
+#define STICK_S3_LCD_DC GPIO_NUM_45
+#define STICK_S3_LCD_RESET GPIO_NUM_21
+#define STICK_S3_LCD_BACKLIGHT GPIO_NUM_38
+#define STICK_S3_LCD_WIDTH 135
+#define STICK_S3_LCD_HEIGHT 240
+#define STICK_S3_LCD_OFFSET_X 52
+#define STICK_S3_LCD_OFFSET_Y 40

@@ -1,0 +1,46 @@
+idf_component_register(
+    SRCS
+        "../app/app_main.cpp"
+        "../app/audio/usb_microphone.cpp"
+        "../app/board/board.cpp"
+        "../app/input/two_button_controller.cpp"
+        "../app/micro/micro_control.cpp"
+        "../app/ui/microstick_ui.cpp"
+        "../app/usage/usage_gatt.c"
+        "../app/usage/usage_protocol.c"
+        "../app/usage/usage_snapshot.c"
+        "../app/usage/usage_storage.c"
+        "../generated/microstick_cn_12.c"
+        "../generated/microstick_cn_16.c"
+        "../generated/microstick_roxy_assets.c"
+    INCLUDE_DIRS
+        "../app"
+        "../app/audio"
+        "../app/board"
+        "../app/input"
+        "../app/micro"
+        "../app/ui"
+        "../app/usage"
+        "../generated"
+    REQUIRES
+        codex_control
+        codex_transport_ble_espidf
+        micro_action_tracker
+        two_button_input
+        microstick_state_model
+        esp_driver_gpio
+        esp_driver_i2s
+        esp_driver_i2c
+        esp_driver_spi
+        esp_timer
+        esp_psram
+        esp_lcd
+        esp_codec_dev
+        m5pm1
+        usb_device_uac
+        nvs_flash
+        bt
+        lvgl
+)
+
+target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Werror)

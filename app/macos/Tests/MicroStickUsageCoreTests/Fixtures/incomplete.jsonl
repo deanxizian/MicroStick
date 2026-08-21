@@ -1,0 +1,4 @@
+{"timestamp":"2026-01-01T09:59:00Z","type":"session_meta","payload":{"id":"fixture-incomplete","source":"cli"}}
+not-json
+{"timestamp":"2026-01-01T10:00:00Z","type":"event_msg","payload":{"type":"token_count","rate_limits":{"limit_id":"codex","primary":{"used_percent":10,"window_minutes":10080,"resets_at":1767873600}}}}
+{"timestamp":"2026-01-01T10:01:00Z","type":"event_msg","payload":{"type":"token_count","rate_limits":

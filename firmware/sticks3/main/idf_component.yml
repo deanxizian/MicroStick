@@ -1,0 +1,4 @@
+dependencies:
+  espressif/esp_codec_dev: ~1.5.11
+  lvgl/lvgl: ==9.2.0
+  m5stack/m5pm1: ^1.0.7

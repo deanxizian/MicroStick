@@ -1,0 +1,11 @@
+menu "MicroStick Micro"
+
+config MICROSTICK_MICRO_STATUS_DIAGNOSTICS
+    bool "Log raw v.oai.thstatus payloads to the serial console"
+    default n
+    help
+        Logs only the Micro Agent-light status RPC used to build verified UI
+        fixtures. It never logs prompts, responses, focused-app payloads, or
+        Codex session contents. Disable it for normal release builds.
+
+endmenu
