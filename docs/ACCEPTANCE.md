@@ -9,8 +9,8 @@ This record distinguishes automated evidence from observations that require the 
 | Source commit | the commit named by release tag `v1.0.0` |
 | Firmware version | `1.0.0-stick-s3` |
 | ESP-IDF | 5.5.2 |
-| Firmware application SHA-256 | `0dc2638aeaaf2edd75e0374971cfab26997570704a6dd64f091c920307b11048` |
-| Merged firmware SHA-256 | `69c4a01bdf9977d5266b4ebccf19973c6ed940a8c1bffb9b6fb5ffc7be069786` |
+| Firmware application SHA-256 | recorded from the final tagged CI build in the release report |
+| Merged firmware SHA-256 | published beside the release image as `MicroStick-StickS3.bin.sha256` |
 | UsageSync version | 1.0.0 (build 1), arm64 |
 | UsageSync signature/notarization | Developer ID + hardened runtime; Apple submission `9efa2eb6-7883-4cd2-be5b-4d6deb476eea` accepted and stapled |
 | Mac package SHA-256 | `416210ef73016331d7780a7ad348a3cc1a669be2d05caa28df3e839e9ce5ded8` |
@@ -32,7 +32,7 @@ This record distinguishes automated evidence from observations that require the 
 
 ## Physical acceptance
 
-- [x] Flash the final merged image at `0x0` and verify its full write hash (2026-08-21).
+- [ ] Flash the final tagged CI image at `0x0` and verify its full write hash.
 - [ ] macOS discovers and pairs `Codex Micro`; ChatGPT shows Micro settings and reconnects after restart.
 - [ ] BLE automatically advertises again after disconnect and recovers after sleep/wake.
 - [ ] Front short press sends after 250 ms; front double click requests cancellation; a later single press still sends.
