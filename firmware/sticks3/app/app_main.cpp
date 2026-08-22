@@ -10,18 +10,40 @@
 
 #include "esp_check.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
 
-#define MICROSTICK_FIRMWARE_VERSION "1.0.0-stick-s3"
+#define MICROSTICK_FIRMWARE_VERSION "1.1.0-stick-s3"
 #define STATE_REFRESH_MS 1000
 
 static const char *TAG = "microstick";
 static SemaphoreHandle_t s_state_mutex;
 static microstick_ui_state_t s_state;
 static microstick_battery_filter_t s_battery_filter;
+static int64_t s_last_activity_ms;
+
+static int64_t monotonic_ms(void)
+{
+    return esp_timer_get_time() / 1000;
+}
+
+static void record_activity_locked(int64_t current_ms)
+{
+    s_last_activity_ms = current_ms;
+    s_state.backlight_percent = 100U;
+}
+
+static uint32_t elapsed_ms(int64_t current_ms, int64_t started_ms)
+{
+    if (current_ms <= started_ms) {
+        return 0;
+    }
+    const uint64_t elapsed = (uint64_t)(current_ms - started_ms);
+    return elapsed > UINT32_MAX ? UINT32_MAX : (uint32_t)elapsed;
+}
 
 static void publish_ui(void)
 {
@@ -48,6 +70,8 @@ static void micro_event(micro_event_type_t event, void *context)
     (void)context;
     const micro_agent_snapshot_t snapshot = micro_get_agent_snapshot();
     xSemaphoreTake(s_state_mutex, portMAX_DELAY);
+    /* Host-side changes update the UI without waking the display. Only a
+       physical button press records local activity. */
     s_state.micro = snapshot;
     xSemaphoreGive(s_state_mutex);
 
@@ -94,6 +118,15 @@ static void input_ui_update(const microstick_input_ui_state_t *input, void *cont
     publish_ui();
 }
 
+static void input_activity(void *context)
+{
+    (void)context;
+    xSemaphoreTake(s_state_mutex, portMAX_DELAY);
+    record_activity_locked(monotonic_ms());
+    xSemaphoreGive(s_state_mutex);
+    publish_ui();
+}
+
 static void state_task(void *context)
 {
     (void)context;
@@ -127,6 +160,7 @@ static void state_task(void *context)
         const bool has_usage =
             microstick_usage_gatt_snapshot(&usage, &usage_age);
         const micro_agent_snapshot_t micro = micro_get_agent_snapshot();
+        const int64_t current_ms = monotonic_ms();
 
         xSemaphoreTake(s_state_mutex, portMAX_DELAY);
         s_state.micro = micro;
@@ -145,6 +179,8 @@ static void state_task(void *context)
             s_state.usage = usage;
             s_state.seconds_since_usage_sync = usage_age;
         }
+        s_state.backlight_percent = microstick_backlight_percent_for_idle(
+            elapsed_ms(current_ms, s_last_activity_ms));
         xSemaphoreGive(s_state_mutex);
         publish_ui();
 
@@ -162,6 +198,8 @@ extern "C" void app_main(void)
     s_state.mode = TWO_BUTTON_MODE_HOME;
     s_state.voice_state = MICROSTICK_VOICE_IDLE;
     s_state.seconds_since_usage_sync = UINT32_MAX;
+    s_last_activity_ms = monotonic_ms();
+    s_state.backlight_percent = 100U;
 
     ESP_ERROR_CHECK(stick_s3_board_initialize());
 
@@ -202,7 +240,8 @@ extern "C" void app_main(void)
     };
     ESP_ERROR_CHECK(micro_control_start(&micro_config));
     ESP_ERROR_CHECK(microstick_usage_gatt_start());
-    ESP_ERROR_CHECK(microstick_two_button_controller_start(input_ui_update, nullptr));
+    ESP_ERROR_CHECK(microstick_two_button_controller_start(
+        input_ui_update, input_activity, nullptr));
 
     ESP_ERROR_CHECK(xTaskCreate(state_task, "ms_state", 4096, nullptr, 4,
                                 nullptr) == pdPASS

@@ -180,7 +180,7 @@ int main(void)
 
     feed_json(control,
               "{\"method\":\"v.oai.thstatus\",\"params\":[{\"id\":1,\"c\":16711935,"
-              "\"b\":0.5,\"e\":\"breath\",\"s\":1.25},{\"id\":5,\"b\":0}],\"id\":13}");
+              "\"b\":0.5,\"e\":4,\"s\":1.25},{\"id\":5,\"b\":0}],\"id\":13}");
     assert(fake.last_event == CODEX_EVENT_HOST_STATUS);
     assert(fake.agent_status_count == 2);
     assert(fake.agent_statuses[0].id == 1);
@@ -193,6 +193,34 @@ int main(void)
     assert(fake.agent_statuses[0].speed == 1.25f);
     assert(fake.agent_statuses[1].id == 5);
     assert(fake.agent_statuses[1].fields == CODEX_AGENT_FIELD_BRIGHTNESS);
+    assert(!codex_agent_statuses_are_all_off(fake.agent_statuses,
+                                             fake.agent_status_count));
+
+    feed_json(control,
+              "{\"method\":\"v.oai.thstatus\",\"params\":["
+              "{\"id\":2,\"e\":\"shallowBreath\"},{\"id\":3,\"e\":99}],"
+              "\"id\":14}");
+    assert(fake.agent_status_count == 2);
+    assert(fake.agent_statuses[0].fields == CODEX_AGENT_FIELD_EFFECT);
+    assert(strcmp(fake.agent_statuses[0].effect, "shallow-breath") == 0);
+    assert(fake.agent_statuses[1].fields == CODEX_AGENT_FIELD_EFFECT);
+    assert(strcmp(fake.agent_statuses[1].effect, "unknown") == 0);
+
+    feed_json(control,
+              "{\"method\":\"v.oai.thstatus\",\"params\":["
+              "{\"id\":0,\"c\":0,\"b\":0,\"e\":0,\"s\":0},"
+              "{\"id\":1,\"c\":0,\"b\":0,\"e\":0,\"s\":0},"
+              "{\"id\":2,\"c\":0,\"b\":0,\"e\":0,\"s\":0},"
+              "{\"id\":3,\"c\":0,\"b\":0,\"e\":0,\"s\":0},"
+              "{\"id\":4,\"c\":0,\"b\":0,\"e\":0,\"s\":0},"
+              "{\"id\":5,\"c\":0,\"b\":0,\"e\":0,\"s\":0}],"
+              "\"id\":15}");
+    assert(fake.agent_status_count == CODEX_AGENT_COUNT);
+    assert(codex_agent_statuses_are_all_off(fake.agent_statuses,
+                                            fake.agent_status_count));
+    fake.agent_statuses[2].brightness = 0.1f;
+    assert(!codex_agent_statuses_are_all_off(fake.agent_statuses,
+                                             fake.agent_status_count));
 
     feed_json(control,
               "{\"method\":\"v.oai.rgbcfg\",\"params\":{\"ambient\":"

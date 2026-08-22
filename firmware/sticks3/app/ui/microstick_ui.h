@@ -16,6 +16,7 @@ extern "C" {
 
 typedef enum {
     MICROSTICK_VOICE_IDLE = 0,
+    MICROSTICK_VOICE_PREPARING,
     MICROSTICK_VOICE_LISTENING,
     MICROSTICK_VOICE_PROCESSING,
     MICROSTICK_VOICE_COMPLETED,
@@ -30,6 +31,7 @@ typedef struct {
     bool battery_valid;
     bool charging;
     uint8_t battery_percentage;
+    uint8_t backlight_percent;
     uint8_t menu_index;
     uint8_t submenu_index;
     bool toast_visible;

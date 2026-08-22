@@ -137,6 +137,21 @@ static void handle_codex_event(const codex_event_t *event, void *context)
                                              ? event->request_json
                                              : "<missing>");
 #endif
+        /* ChatGPT's inactivity timer sends the default six-slot all-off
+           lighting model.  It is not an assignment update, so retain the
+           last semantic snapshot until lighting is restored or BLE drops. */
+        if (codex_agent_statuses_are_all_off(event->agent_statuses,
+                                             event->agent_status_count)) {
+            unsigned assigned_count = 0;
+            for (const auto &slot : s_snapshot.agents) {
+                assigned_count += slot.assigned ? 1U : 0U;
+            }
+            ESP_LOGI(TAG,
+                     "Host lighting asleep; preserving %u assigned Agent slots",
+                     assigned_count);
+            translated = MICRO_EVENT_AGENT_STATUS;
+            break;
+        }
         for (size_t index = 0; index < event->agent_status_count; ++index) {
             const codex_agent_status_t &update = event->agent_statuses[index];
             if (update.id >= MICRO_AGENT_COUNT) {

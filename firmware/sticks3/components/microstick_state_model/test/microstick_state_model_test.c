@@ -20,12 +20,28 @@ static void test_host_fallback_mapping(void)
                                       NULL) == MICROSTICK_AGENT_ERROR);
     assert(microstick_agent_state_from_host(true, true, 0x123456, true, 1.0f, false,
                                       NULL) == MICROSTICK_AGENT_UNKNOWN);
-    assert(microstick_agent_state_from_host(true, true, 0x304FFE, true, 0.0f, false,
-                                      NULL) == MICROSTICK_AGENT_OFF);
+    /* A partial brightness-only update must not unassign the slot. */
+    assert(microstick_agent_state_from_host(true, true, 0x304FFE, true, 0.0f, true,
+                                      "breath") == MICROSTICK_AGENT_WORKING);
+    assert(microstick_agent_state_from_host(true, true, 0xFFFFFF, true, 0.0f, true,
+                                      "solid") == MICROSTICK_AGENT_IDLE);
+    assert(microstick_agent_state_from_host(true, true, 0, true, 0.0f, true,
+                                      "off") == MICROSTICK_AGENT_OFF);
 }
 
 static void test_active_and_roxy_priority(void)
 {
+    assert(!microstick_agent_state_should_breathe(MICROSTICK_AGENT_OFF));
+    assert(!microstick_agent_state_should_breathe(MICROSTICK_AGENT_IDLE));
+    assert(!microstick_agent_state_should_breathe(MICROSTICK_AGENT_WORKING));
+    assert(!microstick_agent_state_should_breathe(MICROSTICK_AGENT_UNREAD));
+    assert(microstick_agent_state_should_breathe(
+        MICROSTICK_AGENT_AWAITING_APPROVAL));
+    assert(microstick_agent_state_should_breathe(
+        MICROSTICK_AGENT_AWAITING_RESPONSE));
+    assert(!microstick_agent_state_should_breathe(MICROSTICK_AGENT_ERROR));
+    assert(!microstick_agent_state_should_breathe(MICROSTICK_AGENT_UNKNOWN));
+
     microstick_agent_state_t states[6] = {
         MICROSTICK_AGENT_IDLE,
         MICROSTICK_AGENT_WORKING,
@@ -138,6 +154,41 @@ static void test_battery_power_and_filter(void)
     }
 }
 
+static void test_backlight_idle_levels(void)
+{
+    assert(microstick_backlight_percent_for_idle(0) == 100);
+    assert(microstick_backlight_percent_for_idle(
+               MICROSTICK_BACKLIGHT_DIM_DELAY_MS - 1) == 100);
+    assert(microstick_backlight_percent_for_idle(
+               MICROSTICK_BACKLIGHT_DIM_DELAY_MS) == 50);
+    assert(microstick_backlight_percent_for_idle(
+               MICROSTICK_BACKLIGHT_LOW_DELAY_MS - 1) == 50);
+    assert(microstick_backlight_percent_for_idle(
+               MICROSTICK_BACKLIGHT_LOW_DELAY_MS) == 20);
+    assert(microstick_backlight_percent_for_idle(UINT32_MAX) == 20);
+    assert(microstick_backlight_duty(100, 100) == 100);
+    assert(microstick_backlight_duty(100, 50) == 50);
+    assert(microstick_backlight_duty(100, 20) == 20);
+    assert(microstick_backlight_duty(100, 200) == 100);
+}
+
+static void test_host_voice_terminal_gate(void)
+{
+    assert(!microstick_host_voice_terminal_allowed(false, false, false));
+    assert(!microstick_host_voice_terminal_allowed(true, true, true));
+    assert(!microstick_host_voice_terminal_allowed(true, false, false));
+    assert(microstick_host_voice_terminal_allowed(true, false, true));
+}
+
+static void test_voice_start_gate(void)
+{
+    assert(microstick_voice_start_allowed(false, false, true));
+    assert(!microstick_voice_start_allowed(true, false, true));
+    assert(!microstick_voice_start_allowed(false, true, true));
+    assert(!microstick_voice_start_allowed(false, false, false));
+    assert(!microstick_voice_start_allowed(true, true, false));
+}
+
 int main(void)
 {
     test_host_fallback_mapping();
@@ -145,6 +196,9 @@ int main(void)
     test_layout_and_text_bounds();
     test_completion_hold_does_not_repeat_until_source_clears();
     test_battery_power_and_filter();
+    test_backlight_idle_levels();
+    test_host_voice_terminal_gate();
+    test_voice_start_gate();
     puts("microstick_state_model tests passed");
     return 0;
 }

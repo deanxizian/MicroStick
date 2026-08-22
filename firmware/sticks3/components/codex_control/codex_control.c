@@ -120,6 +120,49 @@ static bool parse_ambient_lighting(const cJSON *params,
     return status->fields != 0;
 }
 
+static const char *agent_effect_name(int effect)
+{
+    /* @worklouder/device-kit-oai serializes OAILightingEffect as a number. */
+    switch (effect) {
+    case 0:
+        return "off";
+    case 1:
+        return "solid";
+    case 2:
+        return "snake";
+    case 3:
+        return "rainbow";
+    case 4:
+        return "breath";
+    case 5:
+        return "gradient";
+    case 6:
+        return "shallow-breath";
+    default:
+        return "unknown";
+    }
+}
+
+static void parse_agent_effect(const cJSON *effect,
+                               codex_agent_status_t *status)
+{
+    const char *name = NULL;
+    if (cJSON_IsNumber(effect) &&
+        effect->valuedouble == (double)effect->valueint) {
+        name = agent_effect_name(effect->valueint);
+    } else if (cJSON_IsString(effect)) {
+        /* Keep compatibility with older community fixtures/implementations. */
+        name = strcmp(effect->valuestring, "shallowBreath") == 0
+                   ? "shallow-breath"
+                   : effect->valuestring;
+    }
+    if (name == NULL) {
+        return;
+    }
+    snprintf(status->effect, sizeof(status->effect), "%s", name);
+    status->fields |= CODEX_AGENT_FIELD_EFFECT;
+}
+
 static size_t parse_agent_statuses(const cJSON *params,
                                    codex_agent_status_t statuses[CODEX_AGENT_COUNT])
 {
@@ -149,10 +192,7 @@ static size_t parse_agent_statuses(const cJSON *params,
             status->fields |= CODEX_AGENT_FIELD_BRIGHTNESS;
         }
         const cJSON *effect = cJSON_GetObjectItemCaseSensitive(value, "e");
-        if (cJSON_IsString(effect)) {
-            snprintf(status->effect, sizeof(status->effect), "%s", effect->valuestring);
-            status->fields |= CODEX_AGENT_FIELD_EFFECT;
-        }
+        parse_agent_effect(effect, status);
         const cJSON *speed = cJSON_GetObjectItemCaseSensitive(value, "s");
         if (cJSON_IsNumber(speed)) {
             status->speed = (float)speed->valuedouble;
@@ -161,6 +201,32 @@ static size_t parse_agent_statuses(const cJSON *params,
         ++count;
     }
     return count;
+}
+
+bool codex_agent_statuses_are_all_off(const codex_agent_status_t *statuses,
+                                      size_t count)
+{
+    if (statuses == NULL || count != CODEX_AGENT_COUNT) {
+        return false;
+    }
+    uint8_t seen = 0;
+    const uint8_t required = CODEX_AGENT_FIELD_COLOR |
+                             CODEX_AGENT_FIELD_BRIGHTNESS |
+                             CODEX_AGENT_FIELD_EFFECT;
+    for (size_t index = 0; index < count; ++index) {
+        const codex_agent_status_t *status = &statuses[index];
+        if (status->id >= CODEX_AGENT_COUNT ||
+            (seen & (uint8_t)(1U << status->id)) != 0 ||
+            (status->fields & required) != required ||
+            status->color_rgb != 0 || status->brightness < 0.0f ||
+            status->brightness > 0.01f || strcmp(status->effect, "off") != 0 ||
+            ((status->fields & CODEX_AGENT_FIELD_SPEED) != 0 &&
+             (status->speed < 0.0f || status->speed > 0.01f))) {
+            return false;
+        }
+        seen |= (uint8_t)(1U << status->id);
+    }
+    return seen == (uint8_t)((1U << CODEX_AGENT_COUNT) - 1U);
 }
 
 static codex_status_t send_json(codex_control_t *control, const char *json)

@@ -7,6 +7,7 @@
 #include "board_config.h"
 #include "codex_ble_espidf.h"
 #include "micro_control.h"
+#include "microstick_state_model.h"
 #include "two_button_input.h"
 #include "usb_microphone.h"
 
@@ -20,7 +21,7 @@
 
 #define INPUT_POLL_MS 10
 #define TOAST_DURATION_MS 1400
-#define VOICE_PROCESSING_FALLBACK_MS 1500
+#define VOICE_PROCESSING_TIMEOUT_MS 30000
 #define VOICE_COMPLETED_HOLD_MS 1000
 
 static const char *TAG = "microstick_input";
@@ -30,7 +31,9 @@ static bool s_microphone_action_active;
 static int64_t s_toast_deadline_ms;
 static int64_t s_voice_deadline_ms;
 static bool s_voice_sequence_active;
+static bool s_host_voice_confirmed;
 static microstick_input_ui_callback_t s_callback;
+static microstick_input_activity_callback_t s_activity_callback;
 static void *s_callback_context;
 static std::atomic_bool s_cancel_requested(false);
 
@@ -49,14 +52,6 @@ static void publish(void)
     copy = s_ui;
     xSemaphoreGive(s_mutex);
     s_callback(&copy, s_callback_context);
-}
-
-static void set_voice_state(microstick_voice_state_t state, int timeout_ms)
-{
-    xSemaphoreTake(s_mutex, portMAX_DELAY);
-    s_ui.voice_state = state;
-    xSemaphoreGive(s_mutex);
-    s_voice_deadline_ms = timeout_ms > 0 ? now_ms() + timeout_ms : 0;
 }
 
 static void show_toast(const char *message)
@@ -78,40 +73,79 @@ static void action_feedback(esp_err_t status, const char *success)
 
 static void release_microphone_action(bool show_processing)
 {
-    esp_err_t status = ESP_OK;
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
     const bool was_active = s_microphone_action_active;
-    if (was_active) {
-        status = micro_send_action(MICRO_ACTION_MIC, MICRO_ACTION_RELEASE);
+    xSemaphoreGive(s_mutex);
+    if (!was_active) {
+        /* The corresponding press may have been rejected because the previous
+           voice request is still processing. Do not disturb that sequence. */
+        return;
     }
-    s_microphone_action_active = false;
+
+    const esp_err_t status =
+        micro_send_action(MICRO_ACTION_MIC, MICRO_ACTION_RELEASE);
     microphone_input_set_ptt_active(false);
-    if (show_processing && was_active && status == ESP_OK) {
-        set_voice_state(MICROSTICK_VOICE_PROCESSING,
-                        VOICE_PROCESSING_FALLBACK_MS);
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    s_microphone_action_active = false;
+    if (show_processing && status == ESP_OK) {
+        s_ui.voice_state = MICROSTICK_VOICE_PROCESSING;
+        /* Only the host's Completed lighting state may claim that text was
+           written. This deadline is recovery from a missing host response. */
+        s_voice_deadline_ms = now_ms() + VOICE_PROCESSING_TIMEOUT_MS;
     } else {
-        set_voice_state(MICROSTICK_VOICE_IDLE, 0);
+        s_ui.voice_state = MICROSTICK_VOICE_IDLE;
+        s_voice_sequence_active = false;
+        s_host_voice_confirmed = false;
+        s_voice_deadline_ms = 0;
     }
+    xSemaphoreGive(s_mutex);
     publish();
 }
 
 static void start_microphone_action(void)
 {
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    const bool can_start = microstick_voice_start_allowed(
+        s_voice_sequence_active, s_microphone_action_active,
+        s_ui.voice_state == MICROSTICK_VOICE_IDLE);
+    if (can_start) {
+        /* Claim the sequence before sending so a host callback cannot race a
+           second local start or overwrite the Preparing state. */
+        s_microphone_action_active = true;
+        s_voice_sequence_active = true;
+        s_host_voice_confirmed = false;
+        s_ui.voice_state = MICROSTICK_VOICE_PREPARING;
+        s_voice_deadline_ms = 0;
+    }
+    xSemaphoreGive(s_mutex);
+
+    if (!can_start) {
+        microphone_input_play_tone(MICROPHONE_TONE_CANCEL);
+        show_toast("请等待处理完成");
+        return;
+    }
+
     /* Suppress the local speaker before the HID press so no queued tone leaks
        into the first microphone frame. */
     microphone_input_set_ptt_active(true);
+
+    /* A successful HID write only means that Mic Press was delivered. The host
+       still needs time to start its recorder, so keep the UI in Preparing until
+       its Recording lighting state confirms that it is ready. Set the local
+       guard before sending to avoid a fast host callback racing this state. */
     const esp_err_t status =
         micro_send_action(MICRO_ACTION_MIC, MICRO_ACTION_PRESS);
     if (status == ESP_OK) {
-        s_microphone_action_active = true;
-        xSemaphoreTake(s_mutex, portMAX_DELAY);
-        s_voice_sequence_active = true;
-        xSemaphoreGive(s_mutex);
-        set_voice_state(MICROSTICK_VOICE_LISTENING, 0);
         publish();
     } else {
-        s_microphone_action_active = false;
         microphone_input_set_ptt_active(false);
-        set_voice_state(MICROSTICK_VOICE_IDLE, 0);
+        xSemaphoreTake(s_mutex, portMAX_DELAY);
+        s_microphone_action_active = false;
+        s_voice_sequence_active = false;
+        s_host_voice_confirmed = false;
+        s_ui.voice_state = MICROSTICK_VOICE_IDLE;
+        s_voice_deadline_ms = 0;
+        xSemaphoreGive(s_mutex);
         action_feedback(status, "");
     }
 }
@@ -236,13 +270,21 @@ static bool update_deadlines(int64_t current)
     }
     if (s_ui.voice_state == MICROSTICK_VOICE_PROCESSING &&
         s_voice_deadline_ms != 0 && current >= s_voice_deadline_ms) {
-        s_ui.voice_state = MICROSTICK_VOICE_COMPLETED;
-        s_voice_deadline_ms = current + VOICE_COMPLETED_HOLD_MS;
+        /* A timeout is not a transcription acknowledgement. Return to idle
+           without showing the host-confirmed "written" state. */
+        s_ui.voice_state = MICROSTICK_VOICE_IDLE;
+        s_voice_sequence_active = false;
+        s_host_voice_confirmed = false;
+        s_voice_deadline_ms = 0;
+        s_ui.toast_visible = true;
+        snprintf(s_ui.toast, sizeof(s_ui.toast), "%s", "未确认");
+        s_toast_deadline_ms = current + TOAST_DURATION_MS;
         changed = true;
     } else if (s_ui.voice_state == MICROSTICK_VOICE_COMPLETED &&
                s_voice_deadline_ms != 0 && current >= s_voice_deadline_ms) {
         s_ui.voice_state = MICROSTICK_VOICE_IDLE;
         s_voice_sequence_active = false;
+        s_host_voice_confirmed = false;
         s_voice_deadline_ms = 0;
         changed = true;
     }
@@ -255,9 +297,10 @@ static void input_task(void *context)
     (void)context;
     two_button_input_t input;
     uint32_t last_revision = 0;
+    bool key1_pressed = gpio_get_level(STICK_S3_KEY1) == 0;
+    bool key2_pressed = gpio_get_level(STICK_S3_KEY2) == 0;
     two_button_input_init(&input, nullptr, (uint32_t)now_ms(),
-                          gpio_get_level(STICK_S3_KEY1) == 0,
-                          gpio_get_level(STICK_S3_KEY2) == 0);
+                          key1_pressed, key2_pressed);
     while (true) {
         const int64_t current = now_ms();
         if (s_cancel_requested.exchange(false)) {
@@ -267,9 +310,18 @@ static void input_task(void *context)
         const micro_agent_snapshot_t snapshot = micro_get_agent_snapshot();
         two_button_input_set_agents(&input, assigned_mask(snapshot),
                                     snapshot.selected_agent);
+        const bool next_key1_pressed = gpio_get_level(STICK_S3_KEY1) == 0;
+        const bool next_key2_pressed = gpio_get_level(STICK_S3_KEY2) == 0;
+        if ((next_key1_pressed && !key1_pressed) ||
+            (next_key2_pressed && !key2_pressed)) {
+            if (s_activity_callback != nullptr) {
+                s_activity_callback(s_callback_context);
+            }
+        }
+        key1_pressed = next_key1_pressed;
+        key2_pressed = next_key2_pressed;
         two_button_input_update(&input, (uint32_t)current,
-                                gpio_get_level(STICK_S3_KEY1) == 0,
-                                gpio_get_level(STICK_S3_KEY2) == 0,
+                                key1_pressed, key2_pressed,
                                 input_event, nullptr);
         const two_button_view_state_t view = two_button_input_view(&input);
         bool changed = false;
@@ -286,7 +338,8 @@ static void input_task(void *context)
 }
 
 extern "C" esp_err_t microstick_two_button_controller_start(
-    microstick_input_ui_callback_t callback, void *context)
+    microstick_input_ui_callback_t callback,
+    microstick_input_activity_callback_t activity_callback, void *context)
 {
     ESP_RETURN_ON_FALSE(s_mutex == nullptr, ESP_ERR_INVALID_STATE, TAG,
                         "input controller already started");
@@ -294,11 +347,15 @@ extern "C" esp_err_t microstick_two_button_controller_start(
     ESP_RETURN_ON_FALSE(s_mutex != nullptr, ESP_ERR_NO_MEM, TAG,
                         "create input mutex");
     s_callback = callback;
+    s_activity_callback = activity_callback;
     s_callback_context = context;
     memset(&s_ui, 0, sizeof(s_ui));
     s_ui.mode = TWO_BUTTON_MODE_HOME;
     s_ui.voice_state = MICROSTICK_VOICE_IDLE;
+    s_microphone_action_active = false;
     s_voice_sequence_active = false;
+    s_host_voice_confirmed = false;
+    s_voice_deadline_ms = 0;
     publish();
     ESP_RETURN_ON_FALSE(xTaskCreate(input_task, "ms_buttons", 5120, nullptr, 5,
                                     nullptr) == pdPASS,
@@ -312,15 +369,16 @@ extern "C" void microstick_two_button_controller_micro_disconnected(void)
         return;
     }
     micro_release_all_actions();
-    s_microphone_action_active = false;
     microphone_input_set_ptt_active(false);
     s_cancel_requested.store(true);
     xSemaphoreTake(s_mutex, portMAX_DELAY);
+    s_microphone_action_active = false;
     s_ui.voice_state = MICROSTICK_VOICE_IDLE;
     s_ui.mode = TWO_BUTTON_MODE_HOME;
     s_voice_sequence_active = false;
-    xSemaphoreGive(s_mutex);
+    s_host_voice_confirmed = false;
     s_voice_deadline_ms = 0;
+    xSemaphoreGive(s_mutex);
     publish();
 }
 
@@ -337,24 +395,36 @@ extern "C" void microstick_two_button_controller_host_voice(
            covers host-latched or Voice Chat recording states. */
         microphone_input_set_ptt_active(true);
         s_voice_sequence_active = true;
+        s_host_voice_confirmed = true;
         changed = s_ui.voice_state != MICROSTICK_VOICE_LISTENING;
         s_ui.voice_state = MICROSTICK_VOICE_LISTENING;
         s_voice_deadline_ms = 0;
+    } else if (s_microphone_action_active) {
+        /* A local held PTT is authoritative. ChatGPT can briefly replay the
+           previous ambient Idle/Processing state before Recording arrives. */
     } else if (s_voice_sequence_active && state == MICRO_VOICE_PROCESSING) {
         microphone_input_set_ptt_active(false);
+        s_host_voice_confirmed = true;
         changed = s_ui.voice_state != MICROSTICK_VOICE_PROCESSING;
         s_ui.voice_state = MICROSTICK_VOICE_PROCESSING;
-        s_voice_deadline_ms = now_ms() + VOICE_PROCESSING_FALLBACK_MS;
-    } else if (s_voice_sequence_active && state == MICRO_VOICE_COMPLETED) {
+        s_voice_deadline_ms = now_ms() + VOICE_PROCESSING_TIMEOUT_MS;
+    } else if (state == MICRO_VOICE_COMPLETED &&
+               microstick_host_voice_terminal_allowed(
+                   s_voice_sequence_active, s_microphone_action_active,
+                   s_host_voice_confirmed)) {
         microphone_input_set_ptt_active(false);
         changed = s_ui.voice_state != MICROSTICK_VOICE_COMPLETED;
         s_ui.voice_state = MICROSTICK_VOICE_COMPLETED;
         s_voice_deadline_ms = now_ms() + VOICE_COMPLETED_HOLD_MS;
-    } else if (s_voice_sequence_active && state == MICRO_VOICE_IDLE) {
+    } else if (state == MICRO_VOICE_IDLE &&
+               microstick_host_voice_terminal_allowed(
+                   s_voice_sequence_active, s_microphone_action_active,
+                   s_host_voice_confirmed)) {
         microphone_input_set_ptt_active(false);
         changed = s_ui.voice_state != MICROSTICK_VOICE_IDLE;
         s_ui.voice_state = MICROSTICK_VOICE_IDLE;
         s_voice_sequence_active = false;
+        s_host_voice_confirmed = false;
         s_voice_deadline_ms = 0;
     }
     xSemaphoreGive(s_mutex);

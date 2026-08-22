@@ -26,7 +26,7 @@
 #define LCD_HOST SPI2_HOST
 #define LCD_PIXEL_CLOCK_HZ (20 * 1000 * 1000)
 #define LCD_BACKLIGHT_PWM_HZ 5000
-#define LCD_BACKLIGHT_DEFAULT 150
+#define LCD_BACKLIGHT_DEFAULT 100
 #define LVGL_DRAW_BUF_LINES 24
 #define LVGL_TICK_PERIOD_MS 10
 #define LVGL_TASK_STACK_SIZE 10240
@@ -45,6 +45,9 @@ static SemaphoreHandle_t s_state_mutex;
 static microstick_ui_state_t s_state;
 static bool s_dirty;
 static lv_display_t *s_display;
+static uint8_t s_backlight_duty;
+static uint8_t s_requested_backlight_duty = LCD_BACKLIGHT_DEFAULT;
+static bool s_backlight_reveal_allowed;
 
 static lv_obj_t *s_home;
 static lv_obj_t *s_agent_group;
@@ -209,7 +212,8 @@ static microstick_roxy_state_t desired_roxy_state(const microstick_ui_state_t &s
     if (state.voice_state == MICROSTICK_VOICE_COMPLETED) {
         return MICROSTICK_ROXY_DONE;
     }
-    if (state.voice_state == MICROSTICK_VOICE_LISTENING ||
+    if (state.voice_state == MICROSTICK_VOICE_PREPARING ||
+        state.voice_state == MICROSTICK_VOICE_LISTENING ||
         state.voice_state == MICROSTICK_VOICE_PROCESSING) {
         return MICROSTICK_ROXY_WAITING;
     }
@@ -275,9 +279,7 @@ static void set_agent_dot(lv_obj_t *ring, lv_obj_t *dot,
         lv_obj_set_style_border_color(dot, lv_color_hex(0x3B4049), 0);
     } else {
         float brightness = slot.has_brightness ? slot.brightness : 0.75f;
-        if (slot.has_effect &&
-            (strcmp(slot.effect, "breath") == 0 ||
-             strcmp(slot.effect, "shallow-breath") == 0)) {
+        if (microstick_agent_state_should_breathe(slot.semantic_state)) {
             const float speed = slot.has_speed && slot.speed > 0.05f
                                     ? slot.speed
                                     : 0.4f;
@@ -429,7 +431,10 @@ static void apply_home(const microstick_ui_state_t &state)
         lv_obj_clear_flag(s_voice_group, LV_OBJ_FLAG_HIDDEN);
         const float phase =
             (float)(current % INT64_C(1200000)) / 1200000.0f;
-        if (state.voice_state == MICROSTICK_VOICE_LISTENING) {
+        if (state.voice_state == MICROSTICK_VOICE_PREPARING) {
+            lv_label_set_text(s_voice_status, "正在准备");
+            lv_label_set_text(s_voice_hint, "请等待");
+        } else if (state.voice_state == MICROSTICK_VOICE_LISTENING) {
             lv_label_set_text(s_voice_status, "正在聆听");
             lv_label_set_text(s_voice_hint, "松开结束");
         } else if (state.voice_state == MICROSTICK_VOICE_PROCESSING) {
@@ -606,6 +611,39 @@ static void show_root(lv_obj_t *root, bool visible)
     }
 }
 
+static void set_backlight_duty(uint8_t duty)
+{
+    if (duty == s_backlight_duty) {
+        return;
+    }
+    esp_err_t status = ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0,
+                                     duty);
+    if (status == ESP_OK) {
+        status = ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+    }
+    if (status == ESP_OK) {
+        s_backlight_duty = duty;
+    } else {
+        ESP_LOGW(TAG, "set backlight duty: %s", esp_err_to_name(status));
+    }
+}
+
+static void apply_backlight(uint8_t percent)
+{
+    if (percent > 100U) {
+        percent = 100U;
+    }
+    const uint8_t duty = microstick_backlight_duty(LCD_BACKLIGHT_DEFAULT,
+                                                    percent);
+    s_requested_backlight_duty = duty;
+    if (!s_backlight_reveal_allowed || duty == s_backlight_duty) {
+        return;
+    }
+    set_backlight_duty(duty);
+    ESP_LOGI(TAG, "Backlight %u%%, duty=%u/255", (unsigned)percent,
+             (unsigned)duty);
+}
+
 static void apply_state(void)
 {
     microstick_ui_state_t state;
@@ -614,6 +652,7 @@ static void apply_state(void)
     s_dirty = false;
     xSemaphoreGive(s_state_mutex);
 
+    apply_backlight(state.backlight_percent);
     apply_top_bar(state);
     apply_home(state);
 
@@ -654,9 +693,7 @@ static void render_timer(lv_timer_t *timer)
                !s_state.micro.connected;
     for (const auto &slot : s_state.micro.agents) {
         animated = animated ||
-                   (slot.has_effect &&
-                    (strcmp(slot.effect, "breath") == 0 ||
-                     strcmp(slot.effect, "shallow-breath") == 0));
+                   microstick_agent_state_should_breathe(slot.semantic_state);
     }
     xSemaphoreGive(s_state_mutex);
     if (redraw || animated || microstick_completion_hold_pending(&s_done_hold)) {
@@ -719,10 +756,12 @@ static esp_err_t initialize_display(void)
     backlight.channel = LEDC_CHANNEL_0;
     backlight.intr_type = LEDC_INTR_DISABLE;
     backlight.timer_sel = LEDC_TIMER_0;
-    backlight.duty = LCD_BACKLIGHT_DEFAULT;
+    backlight.duty = 0;
     backlight.hpoint = 0;
     ESP_RETURN_ON_ERROR(ledc_channel_config(&backlight), TAG,
                         "backlight channel");
+    s_backlight_duty = 0;
+    s_backlight_reveal_allowed = false;
 
     spi_bus_config_t bus = {};
     bus.sclk_io_num = STICK_S3_LCD_CLOCK;
@@ -762,7 +801,7 @@ static esp_err_t initialize_display(void)
                                               STICK_S3_LCD_OFFSET_Y),
                         TAG, "panel gap");
     ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(panel, true), TAG,
-                        "panel on");
+                        "panel on with backlight gated");
 
     lv_init();
     s_display = lv_display_create(STICK_S3_LCD_WIDTH, STICK_S3_LCD_HEIGHT);
@@ -1035,6 +1074,7 @@ extern "C" esp_err_t microstick_ui_start(void)
     memset(&s_state, 0, sizeof(s_state));
     s_state.mode = TWO_BUTTON_MODE_HOME;
     s_state.voice_state = MICROSTICK_VOICE_IDLE;
+    s_state.backlight_percent = 100U;
     s_dirty = true;
     ESP_RETURN_ON_ERROR(initialize_display(), TAG, "initialize display");
     lv_obj_t *screen = lv_display_get_screen_active(s_display);
@@ -1054,6 +1094,13 @@ extern "C" esp_err_t microstick_ui_start(void)
                                     LVGL_TASK_STACK_SIZE, nullptr, 3,
                                     nullptr) == pdPASS,
                         ESP_ERR_NO_MEM, TAG, "create LVGL task");
+    /* Let LVGL paint its first full frame while the backlight stays dark.
+       This is deliberately non-blocking with respect to display callbacks. */
+    vTaskDelay(pdMS_TO_TICKS(120));
+    lock_lvgl();
+    s_backlight_reveal_allowed = true;
+    set_backlight_duty(s_requested_backlight_duty);
+    unlock_lvgl();
     ESP_LOGI(TAG, "Unified Roxy home and control overlays ready");
     return ESP_OK;
 }

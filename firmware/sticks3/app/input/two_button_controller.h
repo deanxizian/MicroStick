@@ -21,9 +21,11 @@ typedef struct {
 
 typedef void (*microstick_input_ui_callback_t)(const microstick_input_ui_state_t *state,
                                          void *context);
+typedef void (*microstick_input_activity_callback_t)(void *context);
 
 esp_err_t microstick_two_button_controller_start(
-    microstick_input_ui_callback_t callback, void *context);
+    microstick_input_ui_callback_t callback,
+    microstick_input_activity_callback_t activity_callback, void *context);
 void microstick_two_button_controller_micro_disconnected(void);
 void microstick_two_button_controller_host_voice(micro_voice_state_t state);
 

@@ -14,8 +14,26 @@ static i2c_master_bus_handle_t s_i2c_bus;
 static M5PM1 s_pmic;
 static bool s_pmic_ready;
 
+static esp_err_t hold_backlight_off(void)
+{
+    /* Latch the backlight low before its power rail starts. The panel reset
+       remains under the ESP LCD driver so boot can never be blocked here. */
+    ESP_RETURN_ON_ERROR(gpio_set_level(STICK_S3_LCD_BACKLIGHT, 0), TAG,
+                        "latch backlight off");
+    const gpio_config_t display_guard = {
+        .pin_bit_mask = (1ULL << STICK_S3_LCD_BACKLIGHT),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    return gpio_config(&display_guard);
+}
+
 extern "C" esp_err_t stick_s3_board_initialize(void)
 {
+    ESP_RETURN_ON_ERROR(hold_backlight_off(), TAG, "hold backlight off");
+
     i2c_master_bus_config_t bus_config = {};
     bus_config.i2c_port = I2C_NUM_0;
     bus_config.sda_io_num = STICK_S3_I2C_SDA;

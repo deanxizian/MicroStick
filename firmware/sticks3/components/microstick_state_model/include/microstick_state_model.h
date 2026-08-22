@@ -57,6 +57,9 @@ typedef struct {
     uint8_t pending_samples;
 } microstick_battery_filter_t;
 
+#define MICROSTICK_BACKLIGHT_DIM_DELAY_MS UINT32_C(60000)
+#define MICROSTICK_BACKLIGHT_LOW_DELAY_MS UINT32_C(300000)
+
 extern const microstick_home_layout_t MICROSTICK_HOME_LAYOUT_135X240;
 
 microstick_agent_state_t microstick_agent_state_from_host(bool assigned, bool has_color,
@@ -66,6 +69,7 @@ microstick_agent_state_t microstick_agent_state_from_host(bool assigned, bool ha
                                                bool has_effect,
                                                const char *effect);
 bool microstick_agent_state_is_active(microstick_agent_state_t state);
+bool microstick_agent_state_should_breathe(microstick_agent_state_t state);
 uint8_t microstick_agent_active_count(const microstick_agent_state_t *states, size_t count);
 microstick_roxy_semantic_t microstick_roxy_aggregate(bool connected,
                                          const microstick_agent_state_t *states,
@@ -76,6 +80,14 @@ bool microstick_home_layout_valid(const microstick_home_layout_t *layout,
 bool microstick_usb_status_visible(bool usb_powered);
 bool microstick_battery_external_power(bool charge_active, bool usb_power_valid,
                                  bool usb_powered);
+bool microstick_host_voice_terminal_allowed(bool sequence_active,
+                                            bool local_ptt_active,
+                                            bool host_voice_confirmed);
+bool microstick_voice_start_allowed(bool sequence_active,
+                                    bool local_ptt_active,
+                                    bool ui_idle);
+uint8_t microstick_backlight_percent_for_idle(uint32_t idle_ms);
+uint8_t microstick_backlight_duty(uint8_t normal_duty, uint8_t percent);
 uint8_t microstick_battery_filter_update(microstick_battery_filter_t *filter,
                                    uint8_t raw_percentage,
                                    bool external_power);

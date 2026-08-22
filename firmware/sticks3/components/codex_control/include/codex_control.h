@@ -63,6 +63,11 @@ typedef struct {
     char effect[CODEX_EFFECT_NAME_SIZE];
 } codex_agent_status_t;
 
+/* Current ChatGPT Desktop sends a complete six-slot all-off batch when its
+ * Micro lighting enters inactivity sleep. */
+bool codex_agent_statuses_are_all_off(const codex_agent_status_t *statuses,
+                                      size_t count);
+
 typedef enum {
     CODEX_LIGHTING_FIELD_COLOR = 1U << 0,
     CODEX_LIGHTING_FIELD_BRIGHTNESS = 1U << 1,

@@ -23,9 +23,13 @@ microstick_agent_state_t microstick_agent_state_from_host(bool assigned, bool ha
                                                bool has_effect,
                                                const char *effect)
 {
+    /* Brightness is presentation metadata. A partial brightness-only update
+       must not clear slot assignment; complete host lighting-sleep batches
+       are filtered by the Micro compatibility layer. */
+    (void)has_brightness;
+    (void)brightness;
     if (!assigned || (has_effect && effect != NULL && strcmp(effect, "off") == 0) ||
-        (has_color && color_rgb == 0) ||
-        (has_brightness && brightness <= 0.01f)) {
+        (has_color && color_rgb == 0)) {
         return MICROSTICK_AGENT_OFF;
     }
     if (!has_color) {
@@ -53,6 +57,14 @@ bool microstick_agent_state_is_active(microstick_agent_state_t state)
 {
     return state == MICROSTICK_AGENT_WORKING ||
            state == MICROSTICK_AGENT_AWAITING_APPROVAL ||
+           state == MICROSTICK_AGENT_AWAITING_RESPONSE;
+}
+
+bool microstick_agent_state_should_breathe(microstick_agent_state_t state)
+{
+    /* Current Micro lighting uses the same orange color for approval and
+       response-required states, so both are rendered as attention-needed. */
+    return state == MICROSTICK_AGENT_AWAITING_APPROVAL ||
            state == MICROSTICK_AGENT_AWAITING_RESPONSE;
 }
 
@@ -159,6 +171,39 @@ bool microstick_battery_external_power(bool charge_active, bool usb_power_valid,
                                  bool usb_powered)
 {
     return charge_active || (usb_power_valid && usb_powered);
+}
+
+bool microstick_host_voice_terminal_allowed(bool sequence_active,
+                                            bool local_ptt_active,
+                                            bool host_voice_confirmed)
+{
+    return sequence_active && !local_ptt_active && host_voice_confirmed;
+}
+
+bool microstick_voice_start_allowed(bool sequence_active,
+                                    bool local_ptt_active,
+                                    bool ui_idle)
+{
+    return !sequence_active && !local_ptt_active && ui_idle;
+}
+
+uint8_t microstick_backlight_percent_for_idle(uint32_t idle_ms)
+{
+    if (idle_ms >= MICROSTICK_BACKLIGHT_LOW_DELAY_MS) {
+        return 20U;
+    }
+    if (idle_ms >= MICROSTICK_BACKLIGHT_DIM_DELAY_MS) {
+        return 50U;
+    }
+    return 100U;
+}
+
+uint8_t microstick_backlight_duty(uint8_t normal_duty, uint8_t percent)
+{
+    if (percent > 100U) {
+        percent = 100U;
+    }
+    return (uint8_t)(((uint32_t)normal_duty * percent + 50U) / 100U);
 }
 
 uint8_t microstick_battery_filter_update(microstick_battery_filter_t *filter,
