@@ -68,6 +68,37 @@ bool microstick_agent_state_should_breathe(microstick_agent_state_t state)
            state == MICROSTICK_AGENT_AWAITING_RESPONSE;
 }
 
+bool microstick_selected_agent_from_host_effects(const bool *assigned,
+                                                 const char *const *effects,
+                                                 size_t count,
+                                                 uint8_t *selected_agent)
+{
+    /* Current ChatGPT builds use breath for the selected slot as well as
+       occasional transient pulsing.  A unique assigned breath is therefore
+       useful host truth; zero or multiple candidates remain ambiguous. */
+    if (assigned == NULL || effects == NULL || selected_agent == NULL ||
+        count == 0 || count > UINT8_MAX) {
+        return false;
+    }
+
+    size_t candidate = count;
+    for (size_t index = 0; index < count; ++index) {
+        if (!assigned[index] || effects[index] == NULL ||
+            strcmp(effects[index], "breath") != 0) {
+            continue;
+        }
+        if (candidate != count) {
+            return false;
+        }
+        candidate = index;
+    }
+    if (candidate == count) {
+        return false;
+    }
+    *selected_agent = (uint8_t)candidate;
+    return true;
+}
+
 uint8_t microstick_agent_active_count(const microstick_agent_state_t *states, size_t count)
 {
     uint8_t active = 0;
@@ -187,8 +218,12 @@ bool microstick_voice_start_allowed(bool sequence_active,
     return !sequence_active && !local_ptt_active && ui_idle;
 }
 
-uint8_t microstick_backlight_percent_for_idle(uint32_t idle_ms)
+uint8_t microstick_backlight_percent_for_idle(uint32_t idle_ms,
+                                              bool external_power)
 {
+    if (external_power) {
+        return 100U;
+    }
     if (idle_ms >= MICROSTICK_BACKLIGHT_LOW_DELAY_MS) {
         return 20U;
     }

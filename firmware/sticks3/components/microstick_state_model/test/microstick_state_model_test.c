@@ -63,6 +63,32 @@ static void test_active_and_roxy_priority(void)
     assert(microstick_roxy_aggregate(true, states, 6) == MICROSTICK_ROXY_SEM_DONE);
 }
 
+static void test_host_selected_agent_inference(void)
+{
+    const bool assigned[6] = {true, true, true, false, true, true};
+    const char *effects[6] = {
+        "solid", "solid", "breath", "off", "solid", "shallow-breath",
+    };
+    uint8_t selected = 0;
+    assert(microstick_selected_agent_from_host_effects(
+        assigned, effects, 6, &selected));
+    assert(selected == 2);
+
+    effects[4] = "breath";
+    assert(!microstick_selected_agent_from_host_effects(
+        assigned, effects, 6, &selected));
+    effects[2] = "solid";
+    effects[4] = "solid";
+    assert(!microstick_selected_agent_from_host_effects(
+        assigned, effects, 6, &selected));
+
+    effects[3] = "breath";
+    assert(!microstick_selected_agent_from_host_effects(
+        assigned, effects, 6, &selected));
+    assert(!microstick_selected_agent_from_host_effects(
+        NULL, effects, 6, &selected));
+}
+
 static void test_layout_and_text_bounds(void)
 {
     assert(microstick_home_layout_valid(&MICROSTICK_HOME_LAYOUT_135X240, 135, 240));
@@ -156,16 +182,17 @@ static void test_battery_power_and_filter(void)
 
 static void test_backlight_idle_levels(void)
 {
-    assert(microstick_backlight_percent_for_idle(0) == 100);
+    assert(microstick_backlight_percent_for_idle(0, false) == 100);
     assert(microstick_backlight_percent_for_idle(
-               MICROSTICK_BACKLIGHT_DIM_DELAY_MS - 1) == 100);
+               MICROSTICK_BACKLIGHT_DIM_DELAY_MS - 1, false) == 100);
     assert(microstick_backlight_percent_for_idle(
-               MICROSTICK_BACKLIGHT_DIM_DELAY_MS) == 50);
+               MICROSTICK_BACKLIGHT_DIM_DELAY_MS, false) == 50);
     assert(microstick_backlight_percent_for_idle(
-               MICROSTICK_BACKLIGHT_LOW_DELAY_MS - 1) == 50);
+               MICROSTICK_BACKLIGHT_LOW_DELAY_MS - 1, false) == 50);
     assert(microstick_backlight_percent_for_idle(
-               MICROSTICK_BACKLIGHT_LOW_DELAY_MS) == 20);
-    assert(microstick_backlight_percent_for_idle(UINT32_MAX) == 20);
+               MICROSTICK_BACKLIGHT_LOW_DELAY_MS, false) == 20);
+    assert(microstick_backlight_percent_for_idle(UINT32_MAX, false) == 20);
+    assert(microstick_backlight_percent_for_idle(UINT32_MAX, true) == 100);
     assert(microstick_backlight_duty(100, 100) == 100);
     assert(microstick_backlight_duty(100, 50) == 50);
     assert(microstick_backlight_duty(100, 20) == 20);
@@ -193,6 +220,7 @@ int main(void)
 {
     test_host_fallback_mapping();
     test_active_and_roxy_priority();
+    test_host_selected_agent_inference();
     test_layout_and_text_bounds();
     test_completion_hold_does_not_repeat_until_source_clears();
     test_battery_power_and_filter();

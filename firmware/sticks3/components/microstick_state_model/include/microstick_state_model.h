@@ -70,6 +70,10 @@ microstick_agent_state_t microstick_agent_state_from_host(bool assigned, bool ha
                                                const char *effect);
 bool microstick_agent_state_is_active(microstick_agent_state_t state);
 bool microstick_agent_state_should_breathe(microstick_agent_state_t state);
+bool microstick_selected_agent_from_host_effects(const bool *assigned,
+                                                 const char *const *effects,
+                                                 size_t count,
+                                                 uint8_t *selected_agent);
 uint8_t microstick_agent_active_count(const microstick_agent_state_t *states, size_t count);
 microstick_roxy_semantic_t microstick_roxy_aggregate(bool connected,
                                          const microstick_agent_state_t *states,
@@ -86,7 +90,8 @@ bool microstick_host_voice_terminal_allowed(bool sequence_active,
 bool microstick_voice_start_allowed(bool sequence_active,
                                     bool local_ptt_active,
                                     bool ui_idle);
-uint8_t microstick_backlight_percent_for_idle(uint32_t idle_ms);
+uint8_t microstick_backlight_percent_for_idle(uint32_t idle_ms,
+                                              bool external_power);
 uint8_t microstick_backlight_duty(uint8_t normal_duty, uint8_t percent);
 uint8_t microstick_battery_filter_update(microstick_battery_filter_t *filter,
                                    uint8_t raw_percentage,

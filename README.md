@@ -1,6 +1,6 @@
 # MicroStick
 
-MicroStick v1.1 将 M5Stack StickS3 变成一台面向 ChatGPT Desktop 的非官方 Codex Micro 兼容控制器。按键与六个 Agent 槽位通过 BLE Vendor HID 直接通信，StickS3 内置麦克风通过 USB UAC 提供给 macOS。唯一的 Mac 后台组件 `MicroStickUsageSync` 只负责把本机 Codex session 中的 7D 剩余用量通过加密 BLE GATT 同步到设备。
+MicroStick v1.2 将 M5Stack StickS3 变成一台面向 ChatGPT Desktop 的非官方 Codex Micro 兼容控制器。按键与六个 Agent 槽位通过 BLE Vendor HID 直接通信，StickS3 内置麦克风通过 USB UAC 提供给 macOS。唯一的 Mac 后台组件 `MicroStickUsageSync` 只负责把本机 Codex session 中的 7D 剩余用量通过加密 BLE GATT 同步到设备。
 
 > MicroStick 是独立的开源兼容实现，与 OpenAI 或 Work Louder 无附属、授权或背书关系。Codex Micro 协议未公开，ChatGPT Desktop 更新可能影响兼容性。
 
@@ -40,7 +40,7 @@ MicroStick v1.1 将 M5Stack StickS3 变成一台面向 ChatGPT Desktop 的非官
 GitHub Release 提供两个独立文件：
 
 - `MicroStick-StickS3.bin`：已合并 bootloader、分区表和应用的固件镜像。
-- `MicroStickUsageSync-v1.1.0-macos-arm64.zip`：已签名并公证的 Apple Silicon 后台组件。
+- `MicroStickUsageSync-v1.2.0-macos-arm64.zip`：已签名并公证的 Apple Silicon 后台组件。
 
 1. 让 StickS3 进入 ROM 下载模式，将 `MicroStick-StickS3.bin` 写入偏移 `0x0`。烧录完成后按一次电源/复位键启动。
 2. 在 macOS 蓝牙设置中配对 `Codex Micro`。如果设备曾使用不同 HID 描述符，请先忽略旧记录再重新配对。

@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.2.0 — 2026-08-22
+
+- Follow an unambiguous host-side Agent selection so the white selection ring stays aligned when the active conversation changes in ChatGPT Desktop.
+- Keep the display at full brightness while StickS3 has external power; battery-only idle dimming remains 100%/50%/20%.
+
 ## v1.1.0 — 2026-08-22
 
 - Preserve Agent assignment when ChatGPT puts the six-slot lighting model to sleep, and decode the current numeric lighting effects.

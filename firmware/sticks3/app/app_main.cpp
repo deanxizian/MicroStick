@@ -16,7 +16,7 @@
 #include "freertos/task.h"
 #include "nvs_flash.h"
 
-#define MICROSTICK_FIRMWARE_VERSION "1.1.0-stick-s3"
+#define MICROSTICK_FIRMWARE_VERSION "1.2.0-stick-s3"
 #define STATE_REFRESH_MS 1000
 
 static const char *TAG = "microstick";
@@ -180,7 +180,7 @@ static void state_task(void *context)
             s_state.seconds_since_usage_sync = usage_age;
         }
         s_state.backlight_percent = microstick_backlight_percent_for_idle(
-            elapsed_ms(current_ms, s_last_activity_ms));
+            elapsed_ms(current_ms, s_last_activity_ms), external_power);
         xSemaphoreGive(s_state_mutex);
         publish_ui();
 

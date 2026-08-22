@@ -152,35 +152,72 @@ static void handle_codex_event(const codex_event_t *event, void *context)
             translated = MICRO_EVENT_AGENT_STATUS;
             break;
         }
-        for (size_t index = 0; index < event->agent_status_count; ++index) {
-            const codex_agent_status_t &update = event->agent_statuses[index];
-            if (update.id >= MICRO_AGENT_COUNT) {
-                continue;
+        {
+            /* Partial patches can retain old effects, so only a complete
+               six-slot effect frame may revise the host-selected slot. */
+            bool complete_effect_frame =
+                event->agent_status_count == MICRO_AGENT_COUNT;
+            bool seen[MICRO_AGENT_COUNT] = {};
+            for (size_t index = 0; index < event->agent_status_count; ++index) {
+                const codex_agent_status_t &update = event->agent_statuses[index];
+                if (update.id >= MICRO_AGENT_COUNT) {
+                    complete_effect_frame = false;
+                    continue;
+                }
+                if (seen[update.id]) {
+                    complete_effect_frame = false;
+                }
+                seen[update.id] = true;
+                if ((update.fields & CODEX_AGENT_FIELD_EFFECT) == 0) {
+                    complete_effect_frame = false;
+                }
+                micro_agent_slot_t &slot = s_snapshot.agents[update.id];
+                slot.assigned = true;
+                if ((update.fields & CODEX_AGENT_FIELD_COLOR) != 0) {
+                    slot.has_color = true;
+                    slot.color_rgb = update.color_rgb;
+                }
+                if ((update.fields & CODEX_AGENT_FIELD_BRIGHTNESS) != 0) {
+                    slot.has_brightness = true;
+                    slot.brightness = update.brightness;
+                }
+                if ((update.fields & CODEX_AGENT_FIELD_EFFECT) != 0) {
+                    slot.has_effect = true;
+                    memcpy(slot.effect, update.effect, sizeof(slot.effect));
+                    slot.effect[sizeof(slot.effect) - 1] = '\0';
+                }
+                if ((update.fields & CODEX_AGENT_FIELD_SPEED) != 0) {
+                    slot.has_speed = true;
+                    slot.speed = update.speed;
+                }
+                slot.semantic_state = microstick_agent_state_from_host(
+                    slot.assigned, slot.has_color, slot.color_rgb,
+                    slot.has_brightness, slot.brightness, slot.has_effect,
+                    slot.effect);
+                slot.assigned = slot.semantic_state != MICROSTICK_AGENT_OFF;
             }
-            micro_agent_slot_t &slot = s_snapshot.agents[update.id];
-            slot.assigned = true;
-            if ((update.fields & CODEX_AGENT_FIELD_COLOR) != 0) {
-                slot.has_color = true;
-                slot.color_rgb = update.color_rgb;
+            if (complete_effect_frame) {
+                bool assigned[MICRO_AGENT_COUNT] = {};
+                const char *effects[MICRO_AGENT_COUNT] = {};
+                for (size_t index = 0; index < MICRO_AGENT_COUNT; ++index) {
+                    if (!seen[index]) {
+                        complete_effect_frame = false;
+                        break;
+                    }
+                    assigned[index] = s_snapshot.agents[index].assigned;
+                    effects[index] = s_snapshot.agents[index].effect;
+                }
+                uint8_t host_selected = 0;
+                if (complete_effect_frame &&
+                    microstick_selected_agent_from_host_effects(
+                        assigned, effects, MICRO_AGENT_COUNT, &host_selected) &&
+                    host_selected != s_snapshot.selected_agent) {
+                    ESP_LOGI(TAG, "Host selected Agent changed: AG%u -> AG%u",
+                             (unsigned)s_snapshot.selected_agent + 1U,
+                             (unsigned)host_selected + 1U);
+                    s_snapshot.selected_agent = host_selected;
+                }
             }
-            if ((update.fields & CODEX_AGENT_FIELD_BRIGHTNESS) != 0) {
-                slot.has_brightness = true;
-                slot.brightness = update.brightness;
-            }
-            if ((update.fields & CODEX_AGENT_FIELD_EFFECT) != 0) {
-                slot.has_effect = true;
-                memcpy(slot.effect, update.effect, sizeof(slot.effect));
-                slot.effect[sizeof(slot.effect) - 1] = '\0';
-            }
-            if ((update.fields & CODEX_AGENT_FIELD_SPEED) != 0) {
-                slot.has_speed = true;
-                slot.speed = update.speed;
-            }
-            slot.semantic_state = microstick_agent_state_from_host(
-                slot.assigned, slot.has_color, slot.color_rgb,
-                slot.has_brightness, slot.brightness, slot.has_effect,
-                slot.effect);
-            slot.assigned = slot.semantic_state != MICROSTICK_AGENT_OFF;
         }
         translated = MICRO_EVENT_AGENT_STATUS;
         break;
