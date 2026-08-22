@@ -55,6 +55,6 @@ The subsets are used in:
 
 The bundled Roxy frame data is derived from the project owner's custom
 `roxy-pixel` Codex pet atlas. The original atlas is not redistributed. Source
-checksum and derivation details are documented in docs/ROXY_ASSET.md. The
+checksum and derivation details are documented in docs/DEVELOPMENT.md. The
 derived frames are distributed under the MicroStick MIT license and are not
 presented as an OpenAI or Work Louder built-in asset.

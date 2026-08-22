@@ -20,7 +20,7 @@ jobs:
           done
       - name: Check Bash scripts
         run: |
-          for file in scripts/*.sh script/*.sh; do
+          for file in scripts/*.sh; do
             bash -n "$file"
           done
       - name: Compile asset generators and validate bundled font format
@@ -104,11 +104,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Build Apple Silicon UsageSync package
-        run: MICROSTICK_ALLOW_NON_DISTRIBUTION_SIGNING=1 ./script/build_usage_sync_release.sh
+        run: MICROSTICK_ALLOW_NON_DISTRIBUTION_SIGNING=1 ./scripts/build_usage_sync_release.sh
       - name: Verify arm64 app, native login item, and package scripts
         run: |
           test "$(uname -m)" = arm64
-          package="dist/MicroStickUsageSync-v1.0.0-macos-arm64"
+          package="dist/MicroStickUsageSync-v1.1.0-macos-arm64"
           app="$package/MicroStickUsageSync.app"
           codesign --verify --deep --strict "$app"
           test "$(lipo -archs "$app/Contents/MacOS/MicroStickUsageSync")" = arm64
@@ -118,12 +118,12 @@ jobs:
           test -f "$app/Contents/Resources/Licenses/codex-micro-4-core2-LICENSE"
           test -f "$app/Contents/Resources/Licenses/Espressif-usb_device_uac-LICENSE"
           test -f "$app/Contents/Resources/Licenses/SourceHanSans-OFL-1.1.txt"
-          test -f "$package/docs/USAGE_SYNC_INSTALLATION.md"
+          test -f "$package/docs/DEVELOPMENT.md"
           grep -q 'SMAppService.mainApp' app/macos/Sources/MicroStickUsageSync/main.swift
           grep -q 'HOME/Applications' "$package/install.sh"
           ! grep -q 'AssociatedBundleIdentifiers' "$package/install.sh"
           sh -n "$package/install.sh" "$package/uninstall.sh" "$package/doctor.sh"
-          unzip -t "dist/MicroStickUsageSync-v1.0.0-macos-arm64.zip"
+          unzip -t "dist/MicroStickUsageSync-v1.1.0-macos-arm64.zip"
       - uses: actions/upload-artifact@v6
         with:
           name: MicroStickUsageSync-macos-arm64

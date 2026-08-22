@@ -1,6 +1,6 @@
 # MicroStick
 
-MicroStick v1.0 turns an M5Stack StickS3 into an unofficial Codex Micro-compatible controller for ChatGPT Desktop. Buttons and six Agent slots communicate directly over BLE Vendor HID. The built-in microphone appears on macOS as a USB UAC input. The only Mac background component, `MicroStickUsageSync`, sends local Codex 7D remaining usage to the device over an encrypted, product-specific BLE GATT service.
+MicroStick v1.1 turns an M5Stack StickS3 into an unofficial Codex Micro-compatible controller for ChatGPT Desktop. Buttons and six Agent slots communicate directly over BLE Vendor HID. The built-in microphone appears on macOS as a USB UAC input. The only Mac background component, `MicroStickUsageSync`, sends local Codex 7D remaining usage to the device over an encrypted, product-specific BLE GATT service.
 
 > MicroStick is an independent open-source compatibility implementation. It is not affiliated with, authorized by, or endorsed by OpenAI or Work Louder. The Codex Micro protocol is undocumented and may change with ChatGPT Desktop updates.
 
@@ -40,7 +40,7 @@ Navigation exposes Plan, Back, Forward, and Sidebar from the factory Micro layou
 Each GitHub Release contains two independent artifacts:
 
 - `MicroStick-StickS3.bin`: merged bootloader, partition table, and application image.
-- `MicroStickUsageSync-v1.0.0-macos-arm64.zip`: signed and notarized Apple Silicon background component.
+- `MicroStickUsageSync-v1.1.0-macos-arm64.zip`: signed and notarized Apple Silicon background component.
 
 1. Put StickS3 in ROM download mode and flash `MicroStick-StickS3.bin` at offset `0x0`. Press power/reset once after flashing if needed.
 2. Pair `Codex Micro` in macOS Bluetooth settings. Forget an older pairing first if its HID descriptor differs.
@@ -57,10 +57,10 @@ Use an Apple Silicon Mac with macOS 14+, Swift 5.9+, and ESP-IDF 5.5.2:
 
 ```bash
 swift test --package-path app/macos
-./script/build_usage_sync.sh --debug
+./scripts/build_usage_sync.sh --debug
 
 export IDF_PATH=/path/to/esp-idf-v5.5.2
-./script/build_firmware_release.sh
+./scripts/build_firmware_release.sh
 ```
 
 End-user installation does not download ESP-IDF; the toolchain is only needed for firmware development.
@@ -72,4 +72,4 @@ End-user installation does not download ESP-IDF; the toolchain is only needed fo
 - No browser cookies, ChatGPT tokens, account credentials, private quota APIs, telemetry, or stored audio.
 - The Escape cancellation fallback targets the foreground application; use it only while ChatGPT is frontmost.
 
-See [docs](docs/) for protocol, architecture, hardware, and acceptance details. See [LICENSE](LICENSE) and [NOTICE](NOTICE) for licensing.
+Developer documentation is consolidated into [Architecture](docs/ARCHITECTURE.md), [Protocols](docs/PROTOCOLS.md), and [Development](docs/DEVELOPMENT.md). See [LICENSE](LICENSE) and [NOTICE](NOTICE) for licensing.

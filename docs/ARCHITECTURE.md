@@ -14,47 +14,96 @@ M5Stack StickS3  <---------------------------------------------->  ChatGPT Deskt
                                                                   `- ~/.codex/sessions
 ```
 
-ChatGPT Desktop owns speech recognition, transcription, Codex input, Micro actions, and six Agent slots. The firmware owns physical input, BLE/USB transports, display, Roxy, power state, tones, and the device-side usage cache. UsageSync owns only local 7D parsing and BLE delivery.
+ChatGPT Desktop owns speech recognition, transcription, Codex input, Micro actions, and the six Agent slots. Firmware owns physical input, BLE and USB transports, display, Roxy, power state, tones, and the device-side usage cache. `MicroStickUsageSync` owns only local 7D parsing and BLE delivery.
 
-## Firmware boundaries
+## Responsibility boundaries
 
 | Area | Responsibility |
 | --- | --- |
-| `app/micro` | Semantic action API and semantic snapshots; UI/input never handle raw action strings or RPC fields. |
+| `app/micro` | Semantic Micro actions and snapshots; UI and input never handle raw action strings or RPC fields. |
 | `components/codex_control` | Bounded JSON/RPC compatibility codec and unknown-method responses. |
-| `components/codex_transport_ble_espidf` | BLE HID transport, advertising, bonding, reconnect, Vendor reports, and keyboard cancellation fallback. |
+| `components/codex_transport_ble_espidf` | BLE HID transport, advertising, bonding, reconnect, Vendor reports, and the keyboard cancellation fallback. |
 | `app/audio` | ES8311/I2S capture, USB UAC input, tone queue, and PTT tone suppression. |
-| `app/input` + `components/two_button_input` | Deterministic button recognizer and product bindings. |
-| `app/usage` | Encrypted GATT write service, frame reassembly, payload validation, rollback guard, expiry, and NVS cache. |
-| `components/microstick_state_model` | Agent semantics, Roxy aggregation, layout invariants, battery filtering, and formatting. |
+| `app/input` and `components/two_button_input` | Deterministic button recognition and product bindings. |
+| `app/usage` | Encrypted GATT service, frame reassembly, validation, expiry, rollback protection, and NVS cache. |
+| `components/microstick_state_model` | Agent semantics, Roxy aggregation, layout invariants, battery filtering, backlight policy, and formatting. |
 | `app/ui` | LVGL rendering from semantic state only. |
 | `app/board` | StickS3 display, PMIC, GPIO, I2C, codec, and power detection. |
 
-`app_main.cpp` initializes the modules and copies snapshots between them. No UI path parses HID JSON, and no input path depends directly on physical `ACTxx` strings.
+`app_main.cpp` initializes these modules and copies semantic snapshots between them. Undocumented compatibility details remain inside the Micro codec and transport layers. See [Protocols](PROTOCOLS.md) for the wire formats.
 
-## Mac boundaries
+The Swift package has three targets:
 
-The Swift package contains:
+- `MicroStickUsageCore`: bounded session discovery, root/subagent classification, 7D parsing, frame codecs, and private cache.
+- `MicroStickUsageBluetooth`: CoreBluetooth discovery, reconnect/backoff, write-with-response delivery, and heartbeat gating.
+- `MicroStickUsageSync`: file-change watching, low-frequency safety scans, sleep/wake recovery, diagnostics, and the native login-item lifecycle.
 
-- `MicroStickUsageCore`: bounded session discovery, root/subagent classification, 7D rate-limit parsing, payload/frame codecs, and private cache.
-- `MicroStickUsageBluetooth`: CoreBluetooth discovery by service UUID, reconnect/backoff state machine, write-with-response delivery, and heartbeat gate.
-- `MicroStickUsageSync`: FSEvents-style change watching, low-frequency safety scan, sleep/wake recovery, native login-item lifecycle, and privacy-safe diagnostics.
+UsageSync is a windowless `LSUIElement` app registered through `SMAppService.mainApp`. It has no Dock icon, audio path, input injection, HTTP listener, or cloud request.
 
-UsageSync is an `LSUIElement` app registered through `SMAppService.mainApp`. It has no window or Dock icon. Idle work is event-driven; the periodic safety scan and heartbeat run every five minutes.
+## State ownership and recovery
 
-## State ownership
+- Host Agent state is authoritative. Unknown host payloads remain unknown instead of being assigned a guessed meaning.
+- A complete all-off lighting batch caused by host inactivity is presentation sleep, not an Agent assignment update; firmware preserves the last valid six-slot snapshot.
+- The selected Agent is the local view of the last successfully sent selection.
+- Battery percentage, charging, and USB presence come from StickS3 hardware and are independent of BLE and UsageSync.
+- A valid usage snapshot is cached on the Mac and in NVS. Restored data remains visible but starts stale until a fresh delivery arrives.
+- BLE disconnect releases pressed actions, cancels local input state, and restarts advertising. A stale Mic press is never replayed after reconnect.
+- USB removal stops the USB indicator and audio stream without disabling BLE control.
+- Invalid, overlong, out-of-order, unbonded, unencrypted, or checksum-failing Usage writes cannot update NVS or UI.
 
-- Host Agent state remains authoritative. Unknown host payloads stay unknown rather than being assigned a guessed meaning.
-- The selected Agent is a local view of the last successfully sent selection.
-- Battery and USB presence come from StickS3 hardware, independent of BLE and UsageSync.
-- A newly received valid usage snapshot is cached on both peers. A restored cache is always stale until fresh data arrives.
-- An older usage observation cannot overwrite a newer valid snapshot.
+## Product input and UI
 
-## Failure behavior
+### Home screen and power
 
-- BLE disconnect clears pressed Micro actions and resumes advertising.
-- A Mic press is always paired with release on normal release, mode cancellation, or disconnect; it is never replayed after reconnect.
-- USB disconnect stops displaying USB and leaves BLE control available.
-- UsageSync retries with bounded backoff and forces delivery after reconnect or wake.
-- Invalid, overlong, out-of-order, unbonded, unencrypted, or checksum-failing Usage writes do not update NVS or UI.
-- Audio is streamed live and is never persisted by MicroStick.
+The 135×240 home screen combines connection state, local battery, Roxy, the selected `AG1–AG6` slot, six host-colored status dots, active count, and 7D remaining usage. USB replaces the BLE label only while physical USB power is present. The Usage detail page exposes freshness; the home screen keeps expired values dimmed without an extra stale caption.
+
+Backlight starts at 100%, falls to 50% after one minute without a physical button press, and falls to 20% after five minutes. Only a device button press restores 100%; host Agent, lighting, Usage, BLE, or USB updates do not wake the display.
+
+### Buttons
+
+| Input | Home-screen behavior |
+| --- | --- |
+| Front button short press | Send after the 250 ms double-click window. |
+| Front button double click | Send two complete Escape pairs as the cancellation fallback. |
+| Front button held for 250 ms | Send Mic press; release sends Mic release. |
+| Side button short press | Select the next assigned Agent. |
+| Side button held for 500 ms | Open Control Center at `Approve`. |
+
+Control Center order is `Approve / Decline / Fast / Fork / Agents / Navigation / Usage / Device`. Front short/long selects the next/previous item; side short executes; side long returns. Decline requires a second side-button press; the front button or timeout cancels. Menus close after eight seconds of inactivity.
+
+### Agent and Roxy state
+
+The six dots retain the host-provided color, brightness, effect, and speed. Unassigned slots are hollow and dark, the selected slot has an outline, and only an awaiting-approval/response slot breathes. Active count includes Working, Awaiting approval, and Awaiting response, but excludes Idle, Off, and Complete/Unread.
+
+Roxy aggregates all six slots in this order:
+
+```text
+Error > Awaiting input > Working > Complete/Unread > Idle > BLE offline
+```
+
+Complete is held briefly so it remains visible, then follows later host state.
+
+### Voice feedback
+
+| UI state | Source and meaning |
+| --- | --- |
+| `正在准备` | Local state immediately after a successful Mic press; ChatGPT has not confirmed recording yet. |
+| `正在聆听` | Shown only after a recognized ChatGPT Recording lighting payload. |
+| `正在识别` | Entered locally after Mic release and also refreshed by a recognized host Processing payload. |
+| `已写入` | Entered only after a recognized host Completed payload, following host-confirmed Recording or Processing. |
+
+Completed feedback is held for one second. If no terminal host state arrives within 30 seconds of Processing, firmware returns to Idle and displays `未确认`; a timeout never claims that text was written. While a sequence is preparing, recording, processing, or completing, another Mic hold is rejected with `请等待处理完成`; its later release is ignored. Double-click Escape remains available for cancellation. PTT suppresses active and queued local tones, and MicroStick never stores audio or performs transcription itself.
+
+### Tones
+
+- BLE connection: short rising two-tone cue.
+- Successful command: short high cue.
+- Cancellation, unavailable command, or failure: short low cue.
+
+## Security and privacy boundaries
+
+- Usage writes require a bonded, encrypted BLE connection and bounded, versioned frames.
+- UsageSync reads only the required `token_count.rate_limits` fields and never logs prompt, response, account, or full session content.
+- MicroStick stores no recording, opens no network listener, sends no telemetry, and reads no browser cookie or ChatGPT credential.
+- The undocumented Micro protocol is treated as untrusted input: report lengths, fragments, JSON fields, and unknown RPC methods are validated before reaching product state.
+- The Escape fallback targets the foreground application and is not a native Micro Stop acknowledgement.

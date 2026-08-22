@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Build the ESP-IDF release image and its checksum.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

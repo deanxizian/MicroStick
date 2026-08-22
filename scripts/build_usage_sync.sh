@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
+# Build and sign the native MicroStickUsageSync application bundle.
 set -euo pipefail
 
 MODE="${1:---debug}"
 USAGE_NAME="MicroStickUsageSync"
 USAGE_BUNDLE_ID="com.deanxizian.microstick.usage-sync"
 MIN_SYSTEM_VERSION="14.0"
-APP_VERSION="${MICROSTICK_APP_VERSION:-1.0.0}"
+APP_VERSION="${MICROSTICK_APP_VERSION:-1.1.0}"
 APP_BUILD_VERSION="${MICROSTICK_APP_BUILD_VERSION:-1}"
 PACKAGE_ARCHITECTURE="arm64"
 

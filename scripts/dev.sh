@@ -14,13 +14,13 @@ case "${1:-}" in
     exec swift test --package-path "$ROOT_DIR/app/macos"
     ;;
   usage-build)
-    exec "$ROOT_DIR/script/build_usage_sync.sh" --debug
+    exec "$ROOT_DIR/scripts/build_usage_sync.sh" --debug
     ;;
   usage-package)
-    exec "$ROOT_DIR/script/build_usage_sync_release.sh"
+    exec "$ROOT_DIR/scripts/build_usage_sync_release.sh"
     ;;
   firmware-build)
-    exec "$ROOT_DIR/script/build_firmware_release.sh"
+    exec "$ROOT_DIR/scripts/build_firmware_release.sh"
     ;;
   firmware-flash)
     port="${2:?firmware-flash requires a serial PORT}"

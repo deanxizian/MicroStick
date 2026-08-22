@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.1.0 — 2026-08-22
+
+- Preserve Agent assignment when ChatGPT puts the six-slot lighting model to sleep, and decode the current numeric lighting effects.
+- Make only awaiting-input slots breathe and keep host activity from waking the display.
+- Add 100%/50%/20% backlight levels for active, one-minute idle, and five-minute idle states.
+- Keep the backlight off until the first LVGL frame is ready to prevent startup artifacts.
+- Add host-confirmed voice preparation, recording, processing, and completion feedback; reject overlapping voice requests and never synthesize `已写入` from a local timer.
+- Consolidate release tooling under `scripts/` and reduce project documentation to architecture, protocols, and development references.
+
 ## v1.0.0 — 2026-08-21
 
 - Initial MicroStick release for M5Stack StickS3 and Apple Silicon Macs.

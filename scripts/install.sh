@@ -17,7 +17,7 @@ elif [ -d "$PROJECT_DIR/dist/MicroStickUsageSync.app" ]; then
   SOURCE_APP="$PROJECT_DIR/dist/MicroStickUsageSync.app"
 else
   printf '%s\n' "MicroStickUsageSync.app was not found." >&2
-  printf '%s\n' "Build it with ./script/build_usage_sync.sh --package or use the release ZIP." >&2
+  printf '%s\n' "Build it with ./scripts/build_usage_sync.sh --package or use the release ZIP." >&2
   exit 1
 fi
 

@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
-VERSION="${MICROSTICK_APP_VERSION:-1.0.0}"
+VERSION="${MICROSTICK_APP_VERSION:-1.1.0}"
 PACKAGE_NAME="MicroStickUsageSync-v${VERSION}-macos-arm64"
 PACKAGE_DIR="${MICROSTICK_USAGE_PACKAGE_DIR:-$DIST_DIR/$PACKAGE_NAME}"
 ARCHIVE_PATH="$DIST_DIR/$PACKAGE_NAME.zip"
@@ -31,17 +31,18 @@ esac
 /bin/rm -rf "$PACKAGE_DIR"
 /bin/mkdir -p "$PACKAGE_DIR" "$DIST_DIR"
 MICROSTICK_USAGE_OUTPUT_DIR="$PACKAGE_DIR" \
-  "$ROOT_DIR/script/build_usage_sync.sh" --package
+  "$ROOT_DIR/scripts/build_usage_sync.sh" --package
 /bin/cp "$ROOT_DIR/scripts/install.sh" "$PACKAGE_DIR/install.sh"
 /bin/cp "$ROOT_DIR/scripts/uninstall.sh" "$PACKAGE_DIR/uninstall.sh"
 /bin/cp "$ROOT_DIR/scripts/doctor.sh" "$PACKAGE_DIR/doctor.sh"
 /bin/cp "$ROOT_DIR/README.md" "$PACKAGE_DIR/README.md"
 /bin/cp "$ROOT_DIR/README.en.md" "$PACKAGE_DIR/README.en.md"
-/bin/cp "$ROOT_DIR/SECURITY.md" "$PACKAGE_DIR/SECURITY.md"
-/bin/cp -R "$ROOT_DIR/docs" "$PACKAGE_DIR/docs"
-# The source acceptance record contains final artifact digests. Excluding it
-# from the archive avoids a self-referential ZIP checksum.
-/bin/rm -f "$PACKAGE_DIR/docs/ACCEPTANCE.md"
+/bin/mkdir -p "$PACKAGE_DIR/docs"
+/bin/cp "$ROOT_DIR/docs/ARCHITECTURE.md" \
+  "$ROOT_DIR/docs/PROTOCOLS.md" \
+  "$ROOT_DIR/docs/DEVELOPMENT.md" \
+  "$ROOT_DIR/docs/microstick-v1-product-render.png" \
+  "$PACKAGE_DIR/docs/"
 /bin/cp "$ROOT_DIR/LICENSE" "$PACKAGE_DIR/LICENSE"
 /bin/cp "$ROOT_DIR/NOTICE" "$PACKAGE_DIR/NOTICE"
 /bin/chmod 0755 "$PACKAGE_DIR/install.sh" "$PACKAGE_DIR/uninstall.sh" \
@@ -56,7 +57,7 @@ test -f "$APP/Contents/Resources/Licenses/FreeMicro-LICENSE"
 test -f "$APP/Contents/Resources/Licenses/codex-micro-4-core2-LICENSE"
 test -f "$APP/Contents/Resources/Licenses/Espressif-usb_device_uac-LICENSE"
 test -f "$APP/Contents/Resources/Licenses/SourceHanSans-OFL-1.1.txt"
-test -f "$PACKAGE_DIR/docs/USAGE_SYNC_INSTALLATION.md"
+test -f "$PACKAGE_DIR/docs/DEVELOPMENT.md"
 /bin/sh -n "$PACKAGE_DIR/install.sh"
 /bin/sh -n "$PACKAGE_DIR/uninstall.sh"
 /bin/sh -n "$PACKAGE_DIR/doctor.sh"

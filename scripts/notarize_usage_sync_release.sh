@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
+# Submit, staple, and repackage a signed UsageSync release.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
-VERSION="${MICROSTICK_APP_VERSION:-1.0.0}"
+VERSION="${MICROSTICK_APP_VERSION:-1.1.0}"
 PROFILE="${MICROSTICK_NOTARY_PROFILE:-}"
 PACKAGE_NAME="MicroStickUsageSync-v${VERSION}-macos-arm64"
 PACKAGE_DIR="$DIST_DIR/$PACKAGE_NAME"
