@@ -65,7 +65,7 @@ python -m esptool --chip esp32s3 --port /dev/cu.usbmodemXXXX \
 
 Press power/reset once if the board remains in the ROM loader. After any HID descriptor change, forget the old `Codex Micro` record in macOS and pair again.
 
-The BLE compatibility identity uses PID `0x8360`; the independent USB microphone uses PID `0x8361` and manufacturer `MicroStick`. Physical VIN, rather than stale TinyUSB state, controls the on-screen USB indicator. Battery filtering supplies the same percentage to the LCD, standard BLE Battery Service, and Micro `device.status`.
+The BLE compatibility identity uses PID `0x8360`; the independent USB microphone uses PID `0x8361` and manufacturer `MicroStick`. Physical VIN, rather than stale TinyUSB state, controls the on-screen USB indicator. Battery percentage follows M5Unified's current voltage estimate, `(VBAT - 3300 mV) * 100 / (4150 - 3350)`, clamped to `0–100`; MicroStick then applies smoothing and hysteresis and supplies the same value to the LCD, standard BLE Battery Service, and Micro `device.status`. This remains a voltage-based estimate rather than a fuel-gauge measurement, so load and charging state can affect it.
 
 ## macOS UsageSync
 
@@ -100,13 +100,13 @@ UsageSync starts a bounded stdio connection to the Codex executable embedded in 
 Build the Apple Silicon package with a semantic version:
 
 ```bash
-MICROSTICK_APP_VERSION=1.1.0 ./scripts/build_usage_sync_release.sh
+MICROSTICK_APP_VERSION=1.4.0 ./scripts/build_usage_sync_release.sh
 ```
 
 Distribution builds require a `Developer ID Application` identity and hardened runtime. After storing App Store Connect credentials in a Keychain profile:
 
 ```bash
-MICROSTICK_APP_VERSION=1.1.0 \
+MICROSTICK_APP_VERSION=1.4.0 \
 MICROSTICK_NOTARY_PROFILE=YOUR_PROFILE \
   ./scripts/notarize_usage_sync_release.sh
 ```

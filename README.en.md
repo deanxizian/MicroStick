@@ -1,6 +1,6 @@
 # MicroStick
 
-MicroStick v1.3.0 turns an M5Stack StickS3 into an unofficial Codex Micro-compatible controller for ChatGPT Desktop. Buttons and six Agent slots communicate directly over BLE Vendor HID. The built-in microphone appears on macOS as a USB UAC input. The only Mac background component, `MicroStickUsageSync`, actively reads current 7D remaining usage through the local Codex App Server and sends it to the device over an encrypted, product-specific BLE GATT service.
+MicroStick v1.4.0 turns an M5Stack StickS3 into an unofficial Codex Micro-compatible controller for ChatGPT Desktop. Buttons and six Agent slots communicate directly over BLE Vendor HID. The built-in microphone appears on macOS as a USB UAC input. The only Mac background component, `MicroStickUsageSync`, actively reads current 7D remaining usage through the local Codex App Server and sends it to the device over an encrypted, product-specific BLE GATT service.
 
 > MicroStick is an independent open-source compatibility implementation. It is not affiliated with, authorized by, or endorsed by OpenAI or Work Louder. The Codex Micro protocol is undocumented and may change with ChatGPT Desktop updates.
 
@@ -14,6 +14,7 @@ MicroStick v1.3.0 turns an M5Stack StickS3 into an unofficial Codex Micro-compat
 - Six host-driven Agent slots with native color/effect data, `AG1–AG6` labels, and aggregated Roxy animations.
 - A 48 kHz, 16-bit, mono USB input named `MicroStick Microphone`.
 - Local battery/charging, BLE/USB state, Roxy animation, tones, and 7D usage.
+- Battery level is estimated from the M5PM1 cell voltage with the M5Unified-compatible formula, then filtered and shared consistently with the display, BLE Battery Service, and Micro host state.
 - Private usage caches on the Mac and in StickS3 NVS; expired values remain visible but dimmed.
 - Apple Silicon and macOS 14+ only; M5Stack StickS3 is the only supported board.
 
@@ -40,7 +41,7 @@ Navigation exposes Plan, Back, Forward, and Sidebar from the factory Micro layou
 Each GitHub Release contains two independent artifacts:
 
 - `MicroStick-StickS3.bin`: merged bootloader, partition table, and application image.
-- `MicroStickUsageSync-v1.3.0-macos-arm64.zip`: signed and notarized Apple Silicon background component.
+- `MicroStickUsageSync-v1.4.0-macos-arm64.zip`: signed and notarized Apple Silicon background component.
 
 1. Put StickS3 in ROM download mode and flash `MicroStick-StickS3.bin` at offset `0x0`. Press power/reset once after flashing if needed.
 2. Pair `Codex Micro` in macOS Bluetooth settings. Forget an older pairing first if its HID descriptor differs.

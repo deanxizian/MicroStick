@@ -8,6 +8,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "microstick_state_model.h"
 
 static const char *TAG = "stick_s3_board";
 static i2c_master_bus_handle_t s_i2c_bus;
@@ -89,8 +90,7 @@ extern "C" bool stick_s3_board_battery(uint8_t *percentage, bool *charging)
     if (charge_level < 0) {
         return false;
     }
-    const int bounded_mv = millivolts < 3300 ? 3300 : (millivolts > 4200 ? 4200 : millivolts);
-    *percentage = (uint8_t)((bounded_mv - 3300) * 100 / 900);
+    *percentage = microstick_battery_percentage_from_millivolts(millivolts);
     *charging = charge_level == 0;
     return true;
 }

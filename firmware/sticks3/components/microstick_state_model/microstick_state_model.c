@@ -7,6 +7,8 @@
 #define BATTERY_FILTER_SHIFT 3
 #define BATTERY_HYSTERESIS_Q8 192U
 #define BATTERY_CHANGE_CONFIRM_SAMPLES 5U
+#define M5UNIFIED_BATTERY_OFFSET_MV INT32_C(3300)
+#define M5UNIFIED_BATTERY_RANGE_MV (INT32_C(4150) - INT32_C(3350))
 
 const microstick_home_layout_t MICROSTICK_HOME_LAYOUT_135X240 = {
     .top_bar = {.x = 0, .y = 0, .width = 135, .height = 30},
@@ -239,6 +241,19 @@ uint8_t microstick_backlight_duty(uint8_t normal_duty, uint8_t percent)
         percent = 100U;
     }
     return (uint8_t)(((uint32_t)normal_duty * percent + 50U) / 100U);
+}
+
+uint8_t microstick_battery_percentage_from_millivolts(uint16_t millivolts)
+{
+    /* Match M5Unified Power_Class::getBatteryLevel(), including its asymmetric
+       3300 mV offset and 4150 - 3350 mV scale. */
+    const int32_t percentage =
+        ((int32_t)millivolts - M5UNIFIED_BATTERY_OFFSET_MV) * 100 /
+        M5UNIFIED_BATTERY_RANGE_MV;
+    if (percentage <= 0) {
+        return 0U;
+    }
+    return percentage >= 100 ? 100U : (uint8_t)percentage;
 }
 
 uint8_t microstick_battery_filter_update(microstick_battery_filter_t *filter,

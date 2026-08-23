@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.4.0 — 2026-08-23
+
+- Align StickS3 battery estimation with the current M5Unified voltage formula while retaining MicroStick's smoothing, hysteresis, and no-rise-on-battery behavior.
+- Keep one filtered battery value across the display, BLE Battery Service, and Micro `device.status` reports.
+- Re-audit the 1.x runtime, packaging, documentation, licensing, and release paths; no legacy Bridge, HUD, Wi-Fi, HTTP, ASR, JSONL, or input-injection path remains active.
+
 ## v1.3.0 — 2026-08-23
 
 - Read current 7D Codex usage actively through the authenticated local Codex App Server at startup, every five minutes, after wake, and after rate-limit notifications.

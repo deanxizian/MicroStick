@@ -46,8 +46,8 @@ UsageSync is a windowless `LSUIElement` app registered through `SMAppService.mai
 
 - Host Agent state is authoritative. Unknown host payloads remain unknown instead of being assigned a guessed meaning.
 - A complete all-off lighting batch caused by host inactivity is presentation sleep, not an Agent assignment update; firmware preserves the last valid six-slot snapshot.
-- The selected Agent is the local view of the last successfully sent selection.
-- Battery percentage, charging, and USB presence come from StickS3 hardware and are independent of BLE and UsageSync.
+- The selected Agent follows the last successfully sent device selection and an unambiguous host selection inferred from a complete six-slot effect frame; ambiguous host effects leave the previous selection unchanged.
+- Battery percentage, charging, and USB presence come from StickS3 hardware and are independent of BLE and UsageSync. Battery percentage uses the M5Unified-compatible voltage estimate before MicroStick filtering.
 - A valid usage snapshot is cached on the Mac and in NVS. Restored data remains visible but starts stale until a fresh delivery arrives.
 - BLE disconnect releases pressed actions, cancels local input state, and restarts advertising. A stale Mic press is never replayed after reconnect.
 - USB removal stops the USB indicator and audio stream without disabling BLE control.
@@ -59,7 +59,7 @@ UsageSync is a windowless `LSUIElement` app registered through `SMAppService.mai
 
 The 135×240 home screen combines connection state, local battery, Roxy, the selected `AG1–AG6` slot, six host-colored status dots, active count, and 7D remaining usage. USB replaces the BLE label only while physical USB power is present. The Usage detail page exposes freshness; the home screen keeps expired values dimmed without an extra stale caption.
 
-Backlight starts at 100%, falls to 50% after one minute without a physical button press, and falls to 20% after five minutes. Only a device button press restores 100%; host Agent, lighting, Usage, BLE, or USB updates do not wake the display.
+On battery, backlight starts at 100%, falls to 50% after one minute without a physical button press, and falls to 20% after five minutes. A device button press restores 100%; host Agent, lighting, Usage, BLE, or USB updates do not reset the idle timer. External power keeps the backlight at 100%.
 
 ### Buttons
 

@@ -63,11 +63,11 @@ typedef struct {
 extern const microstick_home_layout_t MICROSTICK_HOME_LAYOUT_135X240;
 
 microstick_agent_state_t microstick_agent_state_from_host(bool assigned, bool has_color,
-                                               uint32_t color_rgb,
-                                               bool has_brightness,
-                                               float brightness,
-                                               bool has_effect,
-                                               const char *effect);
+                                                          uint32_t color_rgb,
+                                                          bool has_brightness,
+                                                          float brightness,
+                                                          bool has_effect,
+                                                          const char *effect);
 bool microstick_agent_state_is_active(microstick_agent_state_t state);
 bool microstick_agent_state_should_breathe(microstick_agent_state_t state);
 bool microstick_selected_agent_from_host_effects(const bool *assigned,
@@ -76,14 +76,14 @@ bool microstick_selected_agent_from_host_effects(const bool *assigned,
                                                  uint8_t *selected_agent);
 uint8_t microstick_agent_active_count(const microstick_agent_state_t *states, size_t count);
 microstick_roxy_semantic_t microstick_roxy_aggregate(bool connected,
-                                         const microstick_agent_state_t *states,
-                                         size_t count);
+                                                     const microstick_agent_state_t *states,
+                                                     size_t count);
 const char *microstick_agent_state_label_zh(microstick_agent_state_t state);
 bool microstick_home_layout_valid(const microstick_home_layout_t *layout,
-                            int16_t screen_width, int16_t screen_height);
+                                  int16_t screen_width, int16_t screen_height);
 bool microstick_usb_status_visible(bool usb_powered);
 bool microstick_battery_external_power(bool charge_active, bool usb_power_valid,
-                                 bool usb_powered);
+                                       bool usb_powered);
 bool microstick_host_voice_terminal_allowed(bool sequence_active,
                                             bool local_ptt_active,
                                             bool host_voice_confirmed);
@@ -93,17 +93,18 @@ bool microstick_voice_start_allowed(bool sequence_active,
 uint8_t microstick_backlight_percent_for_idle(uint32_t idle_ms,
                                               bool external_power);
 uint8_t microstick_backlight_duty(uint8_t normal_duty, uint8_t percent);
+uint8_t microstick_battery_percentage_from_millivolts(uint16_t millivolts);
 uint8_t microstick_battery_filter_update(microstick_battery_filter_t *filter,
-                                   uint8_t raw_percentage,
-                                   bool external_power);
+                                         uint8_t raw_percentage,
+                                         bool external_power);
 bool microstick_completion_hold_update(microstick_completion_hold_t *hold,
-                                 bool source_complete, uint32_t now_ms,
-                                 uint32_t duration_ms);
+                                       bool source_complete, uint32_t now_ms,
+                                       uint32_t duration_ms);
 bool microstick_completion_hold_pending(const microstick_completion_hold_t *hold);
 void microstick_format_percentage(uint16_t basis_points, char *output,
-                            size_t output_size);
+                                  size_t output_size);
 void microstick_format_sync_age(uint32_t seconds, bool stale, char *output,
-                          size_t output_size);
+                                size_t output_size);
 
 #ifdef __cplusplus
 }

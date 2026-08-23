@@ -16,7 +16,7 @@
 #include "freertos/task.h"
 #include "nvs_flash.h"
 
-#define MICROSTICK_FIRMWARE_VERSION "1.3.0-stick-s3"
+#define MICROSTICK_FIRMWARE_VERSION "1.4.0-stick-s3"
 #define STATE_REFRESH_MS 1000
 
 static const char *TAG = "microstick";

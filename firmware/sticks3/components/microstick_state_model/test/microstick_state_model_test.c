@@ -141,6 +141,18 @@ static void test_completion_hold_does_not_repeat_until_source_clears(void)
 
 static void test_battery_power_and_filter(void)
 {
+    assert(microstick_battery_percentage_from_millivolts(0) == 0);
+    assert(microstick_battery_percentage_from_millivolts(3299) == 0);
+    assert(microstick_battery_percentage_from_millivolts(3300) == 0);
+    assert(microstick_battery_percentage_from_millivolts(3500) == 25);
+    assert(microstick_battery_percentage_from_millivolts(3700) == 50);
+    assert(microstick_battery_percentage_from_millivolts(3900) == 75);
+    assert(microstick_battery_percentage_from_millivolts(4000) == 87);
+    assert(microstick_battery_percentage_from_millivolts(4099) == 99);
+    assert(microstick_battery_percentage_from_millivolts(4100) == 100);
+    assert(microstick_battery_percentage_from_millivolts(4200) == 100);
+    assert(microstick_battery_percentage_from_millivolts(UINT16_MAX) == 100);
+
     assert(!microstick_battery_external_power(false, true, false));
     assert(microstick_battery_external_power(true, false, false));
     assert(microstick_battery_external_power(false, true, true));

@@ -4,7 +4,9 @@ import MicroStickUsageCore
 
 public final class UsageBluetoothClient: NSObject, @unchecked Sendable {
     public static let serviceUUID = CBUUID(string: "BE1E47D1-4C59-4DAB-80CF-E26202B981D8")
-    public static let characteristicUUID = CBUUID(string: "27A7328B-193D-4961-9C85-CC44006E7E0D")
+    public static let characteristicUUID = CBUUID(
+        string: "27A7328B-193D-4961-9C85-CC44006E7E0D"
+    )
 
     public var onStateChange: (@Sendable (UsageBluetoothState) -> Void)?
     public var onDelivery: (@Sendable (Result<Void, Error>) -> Void)?
@@ -26,7 +28,9 @@ public final class UsageBluetoothClient: NSObject, @unchecked Sendable {
     private var running = false
 
     public init(
-        queue: DispatchQueue = DispatchQueue(label: "com.deanxizian.microstick.usage.bluetooth"),
+        queue: DispatchQueue = DispatchQueue(
+            label: "com.deanxizian.microstick.usage.bluetooth"
+        ),
         heartbeatInterval: TimeInterval = 5 * 60
     ) {
         self.queue = queue
@@ -38,8 +42,11 @@ public final class UsageBluetoothClient: NSObject, @unchecked Sendable {
         queue.async { [weak self] in
             guard let self, !self.running else { return }
             self.running = true
-            self.central = CBCentralManager(delegate: self, queue: self.queue,
-                                            options: [CBCentralManagerOptionShowPowerAlertKey: false])
+            self.central = CBCentralManager(
+                delegate: self,
+                queue: self.queue,
+                options: [CBCentralManagerOptionShowPowerAlertKey: false]
+            )
         }
     }
 
@@ -86,9 +93,9 @@ public final class UsageBluetoothClient: NSObject, @unchecked Sendable {
             case .startScan:
                 retryWork?.cancel()
                 central?.stopScan()
-                /* ChatGPT may already own the physical BLE link. CoreBluetooth
-                   can attach this client to that connected peripheral even when
-                   the device has stopped advertising. */
+                // ChatGPT may already own the physical BLE link. CoreBluetooth
+                // can attach this client to that connected peripheral even when
+                // the device has stopped advertising.
                 if let connected = central?.retrieveConnectedPeripherals(
                     withServices: [Self.serviceUUID]
                 ).first {
@@ -100,7 +107,10 @@ public final class UsageBluetoothClient: NSObject, @unchecked Sendable {
                 central?.scanForPeripherals(withServices: [Self.serviceUUID],
                                             options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
             case .connect:
-                guard let peripheral else { transition(.failed); continue }
+                guard let peripheral else {
+                    transition(.failed)
+                    continue
+                }
                 central.stopScan()
                 central.connect(peripheral, options: nil)
             case .discoverService:
@@ -108,12 +118,15 @@ public final class UsageBluetoothClient: NSObject, @unchecked Sendable {
             case .discoverCharacteristic:
                 guard let service = peripheral?.services?.first(where: {
                     $0.uuid == Self.serviceUUID
-                }) else { transition(.failed); continue }
+                }) else {
+                    transition(.failed)
+                    continue
+                }
                 peripheral?.discoverCharacteristics([Self.characteristicUUID], for: service)
             case .becameReady:
                 deliveryGate.resetConnection()
                 attemptDelivery(now: Date())
-            case let .scheduleRetry(seconds):
+            case .scheduleRetry(let seconds):
                 retryWork?.cancel()
                 let work = DispatchWorkItem { [weak self] in self?.transition(.retryElapsed) }
                 retryWork = work
@@ -176,10 +189,10 @@ extension UsageBluetoothClient: CBCentralManagerDelegate {
         _ central: CBCentralManager,
         didDiscover peripheral: CBPeripheral,
         advertisementData: [String: Any],
-        rssi RSSI: NSNumber
+        rssi: NSNumber
     ) {
         guard machine.state == .scanning else { return }
-        onDiagnostic?("discovered usage service rssi=\(RSSI)")
+        onDiagnostic?("discovered usage service rssi=\(rssi)")
         self.peripheral = peripheral
         peripheral.delegate = self
         transition(.peripheralDiscovered)

@@ -6,7 +6,7 @@ final class CodexAppServerWireTests: XCTestCase {
     func testBuildsBoundedInitializeAndRateLimitRequests() throws {
         let initialize = try CodexAppServerWire.initializeRequest(
             id: 7,
-            clientVersion: "1.3.0"
+            clientVersion: "1.4.0"
         )
         XCTAssertEqual(initialize.last, 0x0a)
         let initializeObject = try XCTUnwrap(CodexAppServerWire.decode(
