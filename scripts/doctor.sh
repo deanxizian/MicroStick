@@ -25,6 +25,23 @@ else
   fail "ChatGPT Desktop was not found"
 fi
 
+CODEX_EXECUTABLE=""
+for candidate in \
+  "/Applications/ChatGPT.app/Contents/Resources/codex" \
+  "$HOME/Applications/ChatGPT.app/Contents/Resources/codex" \
+  "/Applications/Codex.app/Contents/Resources/codex" \
+  "$HOME/Applications/Codex.app/Contents/Resources/codex"; do
+  if [ -x "$candidate" ]; then
+    CODEX_EXECUTABLE="$candidate"
+    break
+  fi
+done
+if [ -n "$CODEX_EXECUTABLE" ]; then
+  pass "Codex active usage source is available"
+else
+  warn "Codex executable was not found; UsageSync can only retain cached usage"
+fi
+
 if [ -x "$USAGE_BINARY" ] && \
    /usr/bin/codesign --verify --deep --strict "$USAGE_APP" >/dev/null 2>&1 && \
    [ "$(/usr/bin/lipo -archs "$USAGE_BINARY" 2>/dev/null || true)" = "arm64" ]; then
@@ -58,6 +75,13 @@ fi
 
 if [ -f "$SUPPORT_DIR/usage-sync-status-v1.json" ]; then
   pass "UsageSync runtime status exists"
+  codex_state="$(/usr/bin/plutil -extract codexState raw \
+    "$SUPPORT_DIR/usage-sync-status-v1.json" 2>/dev/null || true)"
+  case "$codex_state" in
+    ready) pass "Codex active usage source is ready" ;;
+    unavailable|retrying) warn "Codex active usage source is unavailable; cached usage may become stale" ;;
+    *) warn "Codex active usage source has not reported ready yet" ;;
+  esac
 else
   warn "No usage snapshot has been delivered yet"
 fi

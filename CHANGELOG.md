@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.3.0 — 2026-08-23
+
+- Read current 7D Codex usage actively through the authenticated local Codex App Server at startup, every five minutes, after wake, and after rate-limit notifications.
+- Remove all runtime access to `~/.codex/sessions`, including JSONL scanning, FSEvents watching, fixtures, and real-session tests.
+- Keep only the private last-valid quota cache when active lookup is unavailable, with the existing 15-minute stale protection.
+- Add bounded App Server process, wire, parser, retry, percentage-boundary, and cache-freshness coverage.
+
 ## v1.2.0 — 2026-08-22
 
 - Follow an unambiguous host-side Agent selection so the white selection ring stays aligned when the active conversation changes in ChatGPT Desktop.

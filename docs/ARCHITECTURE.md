@@ -10,11 +10,12 @@ M5Stack StickS3  <---------------------------------------------->  ChatGPT Deskt
       +---------------- USB UAC microphone -------------------->  macOS audio
       |
       +---------------- encrypted Usage GATT <-----------------  MicroStickUsageSync
-                                                                  |
-                                                                  `- ~/.codex/sessions
+                                                                  `- local Codex app-server
+                                                                           |
+                                                                           `- OpenAI quota read
 ```
 
-ChatGPT Desktop owns speech recognition, transcription, Codex input, Micro actions, and the six Agent slots. Firmware owns physical input, BLE and USB transports, display, Roxy, power state, tones, and the device-side usage cache. `MicroStickUsageSync` owns only local 7D parsing and BLE delivery.
+ChatGPT Desktop owns speech recognition, transcription, Codex input, Micro actions, and the six Agent slots. Firmware owns physical input, BLE and USB transports, display, Roxy, power state, tones, and the device-side usage cache. `MicroStickUsageSync` owns only active 7D acquisition, bounded parsing, private caching, and BLE delivery. It never reads Codex task sessions.
 
 ## Responsibility boundaries
 
@@ -32,13 +33,14 @@ ChatGPT Desktop owns speech recognition, transcription, Codex input, Micro actio
 
 `app_main.cpp` initializes these modules and copies semantic snapshots between them. Undocumented compatibility details remain inside the Micro codec and transport layers. See [Protocols](PROTOCOLS.md) for the wire formats.
 
-The Swift package has three targets:
+The Swift package has four targets:
 
-- `MicroStickUsageCore`: bounded session discovery, root/subagent classification, 7D parsing, frame codecs, and private cache.
+- `MicroStickUsageCore`: usage snapshots, frame codecs, freshness rules, and private cache.
 - `MicroStickUsageBluetooth`: CoreBluetooth discovery, reconnect/backoff, write-with-response delivery, and heartbeat gating.
-- `MicroStickUsageSync`: file-change watching, low-frequency safety scans, sleep/wake recovery, diagnostics, and the native login-item lifecycle.
+- `MicroStickUsageCodex`: Codex executable discovery, bounded stdio JSON, active account-rate-limit parsing, timeout, and recovery.
+- `MicroStickUsageSync`: five-minute refresh, freshness enforcement, sleep/wake recovery, diagnostics, and the native login-item lifecycle.
 
-UsageSync is a windowless `LSUIElement` app registered through `SMAppService.mainApp`. It has no Dock icon, audio path, input injection, HTTP listener, or cloud request.
+UsageSync is a windowless `LSUIElement` app registered through `SMAppService.mainApp`. It has no Dock icon, audio path, input injection, or HTTP listener. It does not handle credentials or implement a direct OpenAI HTTP client: the authenticated local Codex App Server owns the outbound account-rate-limit request.
 
 ## State ownership and recovery
 
@@ -103,7 +105,8 @@ Completed feedback is held for one second. If no terminal host state arrives wit
 ## Security and privacy boundaries
 
 - Usage writes require a bonded, encrypted BLE connection and bounded, versioned frames.
-- UsageSync reads only the required `token_count.rate_limits` fields and never logs prompt, response, account, or full session content.
+- UsageSync projects only the `codex` 7D window from the App Server response. It never reads credentials, `~/.codex/sessions`, or task content, and never logs response bodies, account metadata, or reset-credit details.
+- When active lookup is unavailable, the last valid quota-only cache remains visible and becomes stale after 15 minutes.
 - MicroStick stores no recording, opens no network listener, sends no telemetry, and reads no browser cookie or ChatGPT credential.
 - The undocumented Micro protocol is treated as untrusted input: report lengths, fragments, JSON fields, and unknown RPC methods are validated before reaching product state.
 - The Escape fallback targets the foreground application and is not a native Micro Stop acknowledgement.

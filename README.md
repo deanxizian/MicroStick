@@ -1,6 +1,6 @@
 # MicroStick
 
-MicroStick v1.2 将 M5Stack StickS3 变成一台面向 ChatGPT Desktop 的非官方 Codex Micro 兼容控制器。按键与六个 Agent 槽位通过 BLE Vendor HID 直接通信，StickS3 内置麦克风通过 USB UAC 提供给 macOS。唯一的 Mac 后台组件 `MicroStickUsageSync` 只负责把本机 Codex session 中的 7D 剩余用量通过加密 BLE GATT 同步到设备。
+MicroStick v1.3.0 将 M5Stack StickS3 变成一台面向 ChatGPT Desktop 的非官方 Codex Micro 兼容控制器。按键与六个 Agent 槽位通过 BLE Vendor HID 直接通信，StickS3 内置麦克风通过 USB UAC 提供给 macOS。唯一的 Mac 后台组件 `MicroStickUsageSync` 通过本机 Codex App Server 主动读取当前 7D 剩余用量，并通过加密 BLE GATT 同步到设备。
 
 > MicroStick 是独立的开源兼容实现，与 OpenAI 或 Work Louder 无附属、授权或背书关系。Codex Micro 协议未公开，ChatGPT Desktop 更新可能影响兼容性。
 
@@ -17,7 +17,7 @@ MicroStick v1.2 将 M5Stack StickS3 变成一台面向 ChatGPT Desktop 的非官
 - 7D 用量缓存于 Mac 私有目录和 StickS3 NVS；过期快照保留显示但会灰显。
 - Apple Silicon 与 macOS 14+；硬件仅支持 M5Stack StickS3。
 
-运行时不监听网络端口、不上传录音、不调用云端 ASR、不注入文本，也不要求辅助功能权限。语音识别、转写和 Codex 输入全部由 ChatGPT Desktop 完成。
+运行时不监听网络端口、不上传录音、不调用云端 ASR、不注入文本，也不要求辅助功能权限。UsageSync 的额度查询由已登录的本机 Codex 进程代为访问 OpenAI；语音识别、转写和 Codex 输入全部由 ChatGPT Desktop 完成。
 
 ## 按键
 
@@ -40,11 +40,11 @@ MicroStick v1.2 将 M5Stack StickS3 变成一台面向 ChatGPT Desktop 的非官
 GitHub Release 提供两个独立文件：
 
 - `MicroStick-StickS3.bin`：已合并 bootloader、分区表和应用的固件镜像。
-- `MicroStickUsageSync-v1.2.0-macos-arm64.zip`：已签名并公证的 Apple Silicon 后台组件。
+- `MicroStickUsageSync-v1.3.0-macos-arm64.zip`：已签名并公证的 Apple Silicon 后台组件。
 
 1. 让 StickS3 进入 ROM 下载模式，将 `MicroStick-StickS3.bin` 写入偏移 `0x0`。烧录完成后按一次电源/复位键启动。
 2. 在 macOS 蓝牙设置中配对 `Codex Micro`。如果设备曾使用不同 HID 描述符，请先忽略旧记录再重新配对。
-3. 解压 UsageSync ZIP，在终端运行 `./install.sh`。如系统要求，在“系统设置 → 通用 → 登录项”中启用 `MicroStickUsageSync`，并允许蓝牙访问。
+3. 确认 ChatGPT Desktop 已登录。解压 UsageSync ZIP，在终端运行 `./install.sh`。如系统要求，在“系统设置 → 通用 → 登录项”中启用 `MicroStickUsageSync`，并允许蓝牙访问。
 4. 在 ChatGPT 的 Codex Micro 设置中恢复默认布局；如需使用 StickS3 麦克风，在 ChatGPT 中选择 `MicroStick Microphone`。
 
 无需 StickS3 USB 麦克风时可以拔掉 USB；BLE 控制仍可使用，ChatGPT 会继续使用当前选择的 Mac 麦克风。
@@ -80,9 +80,10 @@ export IDF_PATH=/path/to/esp-idf-v5.5.2
 
 ## 安全与隐私
 
-- UsageSync 只读取 `~/.codex/sessions` 中 `token_count.rate_limits` 所需字段，不保存或输出对话正文。
+- UsageSync 通过本机 Codex App Server 的 `account/rateLimits/read` 获取当前额度；它不读取或保存 Codex 登录凭据、Cookie、Token、账户资料或额度重置券信息。
+- UsageSync 不读取 `~/.codex/sessions` 或任何任务正文；主动查询不可用时只保留最后一个有效用量快照，并在过期后灰显。
 - 用量写入要求已绑定且加密的 BLE 连接，并使用 write-with-response、分片长度校验与 CRC。
-- 不读取浏览器 Cookie、ChatGPT Token 或账户凭据；不请求远程额度 API；不发送遥测。
+- 不直接调用未公开 HTTP 地址，不发送遥测；所有主动额度网络请求均由用户已经登录的 Codex 进程完成。
 - 固件的 Escape 取消回退会作用于前台应用，应只在 ChatGPT 位于前台时使用。
 
 开发资料集中在[架构](docs/ARCHITECTURE.md)、[协议](docs/PROTOCOLS.md)和[开发指南](docs/DEVELOPMENT.md)。许可证见 [LICENSE](LICENSE)，第三方声明见 [NOTICE](NOTICE)。

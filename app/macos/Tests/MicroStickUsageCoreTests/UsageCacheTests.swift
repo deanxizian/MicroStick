@@ -3,6 +3,21 @@ import XCTest
 @testable import MicroStickUsageCore
 
 final class UsageCacheTests: XCTestCase {
+    func testStaleBoundaryIsStrictlyOlderThanFifteenMinutes() {
+        let updatedAt = Date(timeIntervalSince1970: 1_767_258_000)
+        let snapshot = UsageSnapshot(
+            sevenDayRemainingBasisPoints: 4_000,
+            updatedAt: updatedAt
+        )
+
+        XCTAssertFalse(snapshot.markingStale(
+            relativeTo: updatedAt.addingTimeInterval(UsageSnapshot.staleAfter)
+        ).stale)
+        XCTAssertTrue(snapshot.markingStale(
+            relativeTo: updatedAt.addingTimeInterval(UsageSnapshot.staleAfter + 1)
+        ).stale)
+    }
+
     func testCacheRestoreAlwaysMarksSnapshotStale() throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

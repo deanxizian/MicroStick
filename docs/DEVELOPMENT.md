@@ -69,7 +69,7 @@ The BLE compatibility identity uses PID `0x8360`; the independent USB microphone
 
 ## macOS UsageSync
 
-The Swift package contains `MicroStickUsageCore`, `MicroStickUsageBluetooth`, and the windowless `MicroStickUsageSync` application. Build and test it with:
+The Swift package contains `MicroStickUsageCore`, `MicroStickUsageBluetooth`, `MicroStickUsageCodex`, and the windowless `MicroStickUsageSync` application. Build and test it with:
 
 ```bash
 swift build --package-path app/macos
@@ -77,16 +77,7 @@ swift test --package-path app/macos
 ./scripts/build_usage_sync.sh --debug
 ```
 
-Tests use only redacted fixtures and cover malformed JSONL, file rotation, root/subagent selection, freshness, cache permissions, payload encoding, fragment reassembly, delivery gating, and Bluetooth recovery. The real-session parity check is opt-in and prints only the expected 7D percentage and freshness:
-
-```bash
-MICROSTICK_REAL_SESSION_PARITY=1 \
-MICROSTICK_EXPECT_7D=75 \
-MICROSTICK_EXPECT_STALE=0 \
-swift test --package-path app/macos --filter RealSessionParityTests
-```
-
-Never attach or commit a real Codex session.
+Tests use synthetic account-rate-limit objects and cover active App Server parsing and process I/O, percentage and timestamp boundaries, freshness, cache permissions, payload encoding, fragment reassembly, delivery gating, and Bluetooth recovery. Tests never open a real Codex task session.
 
 ### Runtime installation and diagnostics
 
@@ -100,9 +91,9 @@ Runtime cache and status files live under `~/Library/Application Support/MicroSt
 ./uninstall.sh --purge
 ```
 
-Default uninstall keeps the private cache; `--purge` removes the support directory. Diagnostics may warn when BLE or USB is intentionally disconnected and never print session paths, prompt text, responses, account identifiers, or payload bodies.
+Default uninstall keeps the private cache; `--purge` removes the support directory. Diagnostics may warn when BLE or USB is intentionally disconnected and never print prompt text, responses, account identifiers, or payload bodies.
 
-UsageSync reacts to session changes with a 750 ms debounce, runs a five-minute safety scan and heartbeat, and recovers after Bluetooth loss, device restart, Mac sleep, and wake.
+UsageSync starts a bounded stdio connection to the Codex executable embedded in ChatGPT Desktop. It requests `account/rateLimits/read` at startup, every five minutes, after wake, and after Codex rate-limit notifications. The compatibility client uses timeouts and bounded exponential recovery and never logs response bodies. It never reads `~/.codex/sessions`; when active lookup is unavailable, the last valid private cache becomes stale after 15 minutes. BLE keeps its five-minute heartbeat and reconnect behavior.
 
 ## Release packaging, signing, and notarization
 

@@ -1,3 +1,0 @@
-{"timestamp":"2026-01-01T09:59:00Z","type":"session_meta","payload":{"id":"fixture-root","source":"cli"}}
-{"timestamp":"2026-01-01T09:59:30Z","type":"response_item","payload":{"type":"message","content":"PRIVATE_CONVERSATION_FIXTURE_MUST_NOT_ESCAPE"}}
-{"timestamp":"2026-01-01T10:00:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"total_tokens":123456789}},"rate_limits":{"limit_id":"codex","primary":{"used_percent":27.5,"window_minutes":300,"resets_at":1767272400},"secondary":{"used_percent":58.5,"window_minutes":10080,"resets_at":1767873600}}}}

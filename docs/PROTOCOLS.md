@@ -115,20 +115,24 @@ Fragments may arrive out of order. The receiver accepts at most two fragments, r
 
 ### 7D source semantics
 
-UsageSync considers only root Codex JSONL sessions, ignores subagent sessions, scans bounded tails of at most the newest 40 eligible files, and selects the newest complete `token_count` event whose `rate_limits.limit_id` is absent, empty, or `codex`.
+The only live source is the local Codex App Server method `account/rateLimits/read`. UsageSync launches the Codex executable embedded in ChatGPT Desktop over bounded stdio, initializes a private process, and selects `rateLimitsByLimitId.codex` or the backward-compatible `rateLimits` bucket. It never reads Codex authentication storage, `~/.codex/sessions`, or task content and does not send a direct HTTP request. The method is a current compatibility surface rather than a published REST API, so all fields remain isolated in `MicroStickUsageCodex`; failure preserves only the last valid quota-only cache.
 
-The seven-day window is the `primary` or `secondary` entry whose numeric `window_minutes` is `10080`. Token totals are ignored. Displayed remaining usage is:
+The seven-day window is the `primary` or `secondary` entry whose numeric `windowDurationMins` is `10080`; its `usedPercent` and optional `resetsAt` are converted into the device snapshot. Other limit IDs, model-specific buckets, credits, plan data, and account metadata are ignored. A successful network observation uses receipt time as `updated_at`.
+
+UsageSync requests a full snapshot at startup, every five minutes, after wake, and when `account/rateLimits/updated` is observed. Responses and individual lines are bounded, requests time out, process failures use bounded retry, and an unavailable or changed App Server method does not erase the last valid value.
+
+The displayed remaining value is:
 
 ```text
 remaining_percent = round_to_nearest_even(clamp(100 - used_percent, 0, 100))
 remaining_basis_points = remaining_percent * 100
 ```
 
-Finite string and numeric `used_percent` values are accepted. Boolean, non-finite, malformed, or fractional `window_minutes` values are rejected. Reset time is retained only when valid and not earlier than the event timestamp.
+Finite string and numeric `usedPercent` values are accepted. Boolean, non-finite, malformed, or fractional `windowDurationMins` values are rejected. Reset time is retained only when valid and not earlier than the snapshot receipt time.
 
 ### Freshness and cache
 
-- UsageSync and firmware mark data stale after 15 minutes without a fresh observation or delivery.
+- UsageSync and firmware mark data stale after 15 minutes without a successful active observation.
 - Cache restoration always starts stale regardless of the stored flag.
 - Stale data remains visible but dimmed and is never represented as live.
 - Changes are delivered immediately; unchanged state is confirmed by a five-minute heartbeat.

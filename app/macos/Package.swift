@@ -11,6 +11,7 @@ let package = Package(
         .executable(name: "MicroStickUsageSync", targets: ["MicroStickUsageSync"]),
         .library(name: "MicroStickUsageCore", targets: ["MicroStickUsageCore"]),
         .library(name: "MicroStickUsageBluetooth", targets: ["MicroStickUsageBluetooth"]),
+        .library(name: "MicroStickUsageCodex", targets: ["MicroStickUsageCodex"]),
     ],
     targets: [
         .target(
@@ -25,26 +26,38 @@ let package = Package(
                 .linkedFramework("CoreBluetooth"),
             ]
         ),
+        .target(
+            name: "MicroStickUsageCodex",
+            dependencies: ["MicroStickUsageCore"],
+            path: "Sources/MicroStickUsageCodex"
+        ),
         .executableTarget(
             name: "MicroStickUsageSync",
-            dependencies: ["MicroStickUsageCore", "MicroStickUsageBluetooth"],
+            dependencies: [
+                "MicroStickUsageCore",
+                "MicroStickUsageBluetooth",
+                "MicroStickUsageCodex",
+            ],
             path: "Sources/MicroStickUsageSync",
             linkerSettings: [
                 .linkedFramework("AppKit"),
-                .linkedFramework("CoreServices"),
                 .linkedFramework("ServiceManagement"),
             ]
         ),
         .testTarget(
             name: "MicroStickUsageCoreTests",
             dependencies: ["MicroStickUsageCore"],
-            path: "Tests/MicroStickUsageCoreTests",
-            resources: [.copy("Fixtures")]
+            path: "Tests/MicroStickUsageCoreTests"
         ),
         .testTarget(
             name: "MicroStickUsageBluetoothTests",
             dependencies: ["MicroStickUsageCore", "MicroStickUsageBluetooth"],
             path: "Tests/MicroStickUsageBluetoothTests"
+        ),
+        .testTarget(
+            name: "MicroStickUsageCodexTests",
+            dependencies: ["MicroStickUsageCore", "MicroStickUsageCodex"],
+            path: "Tests/MicroStickUsageCodexTests"
         ),
     ]
 )
